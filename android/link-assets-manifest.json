@@ -1,0 +1,41 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-Bold.ttf",
+      "sha1": "5ca9b1fed6fa826bcd74a90624fe0fa2d9b10db9"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-BoldItalic.ttf",
+      "sha1": "4d48baf883294e634b40fab13ae773c1a89b4ecf"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-ExtraBold.ttf",
+      "sha1": "2f37cb86645df10affdaefe32e0d367c61487d73"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-ExtraBoldItalic.ttf",
+      "sha1": "82e86c63a13c4f0158d3e7e2bedf42db1fae92dc"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-Italic.ttf",
+      "sha1": "d2366db9c0ac58643156c629409edba4097f36d7"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-Light.ttf",
+      "sha1": "36514e24ba6ec85d65770310c0c6dc345f8df204"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-LightItalic.ttf",
+      "sha1": "5bb1046e22abbbfe9b581ca6d725f11f87ab6cbf"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-Medium.ttf",
+      "sha1": "ab5f2c2782a0375d3ac7b834cf5e4bd5a34e0596"
+    },
+    {
+      "path": "src/assets/fonts/OpenSans_Condensed-MediumItalic.ttf",
+      "sha1": "6aa4579a321ac50e472d365292e2c8655e060850"
+    }
+  ]
+}
