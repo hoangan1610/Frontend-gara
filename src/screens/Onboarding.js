@@ -1,6 +1,6 @@
 import { ImageBackground, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
-import { Colors } from '../constans'
+import { Colors } from '../constants'
 import Buttons from '../components/Buttons'
 
 
