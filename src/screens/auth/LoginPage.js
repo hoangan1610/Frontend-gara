@@ -5,12 +5,45 @@ import { Colors } from '../../constants';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import SocialLogin from '../../components/SocialLogin'; // Import component SocialLogin
+import { BASE_URL } from '../../constants/config';// Import BASE_URL từ config.js
 
 const LoginPage = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
+
+  // Hàm xử lý đăng nhập qua API
+  const handleLogin = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Giả sử API của bạn nhận vào username và password, nếu cần đổi sang email hãy chỉnh sửa lại
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Đăng nhập thành công: lưu token nếu cần và chuyển hướng sang trang Home
+        console.log('Đăng nhập thành công:', data);
+        navigation.navigate('HomePage');
+      } else {
+        // Xử lý lỗi đăng nhập (hiển thị thông báo lỗi)
+        console.error('Đăng nhập thất bại:', data.message);
+        alert(data.message || 'Đăng nhập thất bại');
+      }
+    } catch (error) {
+      console.error('Lỗi:', error);
+      alert('Có lỗi xảy ra, vui lòng thử lại.');
+    }
+  };
 
   // Xử lý đăng nhập bằng social media
   const handleFacebookLogin = () => {
@@ -25,9 +58,8 @@ const LoginPage = () => {
     <View style={styles.container}>
       {/* Nút Back */}
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Login')}>
-  <Ionicons name="arrow-back" size={24} color={Colors.black} />
-  </TouchableOpacity>
-
+        <Ionicons name="arrow-back" size={24} color={Colors.black} />
+      </TouchableOpacity>
 
       {/* Logo HQA */}
       <Text style={styles.logo}>HQA</Text>
@@ -37,8 +69,8 @@ const LoginPage = () => {
         style={styles.input}
         placeholder="Tên đăng nhập"
         placeholderTextColor="#999"
-        value={username}
-        onChangeText={setUsername}
+        value={email}
+        onChangeText={setEmail}
       />
 
       {/* Password Input */}
@@ -60,18 +92,18 @@ const LoginPage = () => {
         </TouchableOpacity>
       </View>
 
-     {/* Quên mật khẩu */}
-    <TouchableOpacity
-      style={styles.forgotPasswordButton}
-      onPress={() => navigation.navigate('ForgotPasswordPage')} // Dẫn tới trang quên mật khẩu
->
-    <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-</TouchableOpacity>
+      {/* Quên mật khẩu */}
+      <TouchableOpacity
+        style={styles.forgotPasswordButton}
+        onPress={() => navigation.navigate('ForgotPasswordPage')}
+      >
+        <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+      </TouchableOpacity>
 
       {/* Nút Đăng nhập */}
       <StyledButton
         title="Đăng nhập"
-        onPress={() => console.log('Đăng nhập')} // Xử lý đăng nhập
+        onPress={handleLogin} // Gọi hàm handleLogin để thực hiện đăng nhập qua API
         style={{ backgroundColor: Colors.primary }}
       />
 

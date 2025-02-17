@@ -6,6 +6,8 @@ import { Splash, Onboarding, Login } from './src/screens';
 import LoginPage from './src/screens/auth/LoginPage';
 import RegisterPage from './src/screens/auth/RegisterPage';
 import ForgotPasswordPage from './src/screens/auth/ForgotPasswordPage';
+import HomePage from './src/screens/HomePage';
+import PhoneVerificationPage from './src/screens/auth/PhoneVerificationPage';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
@@ -17,7 +19,9 @@ const App = () => {
         <Stack.Screen name="Login" component={Login}/>
         <Stack.Screen name="LoginPage" component={LoginPage} />
         <Stack.Screen name="RegisterPage" component={RegisterPage} />
+        <Stack.Screen name="PhoneVerificationPage" component={PhoneVerificationPage} />
         <Stack.Screen name="ForgotPasswordPage" component={ForgotPasswordPage} />
+        <Stack.Screen name="HomePage" component={HomePage} />
       </Stack.Navigator>
     </NavigationContainer>
   )

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import StyledButton from '../../components/StyledButton';
 import { Colors } from '../../constants';
 import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
-
+import { BASE_URL } from '../../constants/config'; // Import BASE_URL từ file cấu hình
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -15,9 +14,63 @@ const RegisterPage = () => {
   const [lastName, setLastName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState('male');
+  const [birth, setBirth] = useState(''); // Trường nhập ngày sinh theo định dạng dd-mm-yyyy
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
+
+  // Hàm chuyển đổi chuỗi dd-mm-yyyy thành chuỗi ISO (yyyy-mm-ddT00:00:00.000Z)
+  const parseBirthDate = (dateStr) => {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return "";
+    const [day, month, year] = parts;
+    if (day.length !== 2 || month.length !== 2 || year.length !== 4) return "";
+    return `${year}-${month}-${day}T00:00:00.000Z`;
+  };
+
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Lỗi", "Mật khẩu không khớp");
+      return;
+    }
+
+    const isoBirth = parseBirthDate(birth);
+    if (!isoBirth) {
+      Alert.alert("Lỗi", "Ngày sinh không đúng định dạng. Vui lòng nhập theo định dạng dd-mm-yyyy");
+      return;
+    }
+
+    const payload = {
+      email: email,
+      password: password,
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      birth: isoBirth,
+    };
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/auth/regist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Thông báo", "Vui lòng xác thực số điện thoại để hoàn tất đăng ký");
+        // Chuyển hướng sang trang xác thực số điện thoại, truyền phone qua params
+        navigation.navigate('PhoneVerificationPage', { phone });
+      } else {
+        Alert.alert("Lỗi", data.message || "Đăng ký thất bại");
+      }
+    } catch (error) {
+      console.error("Lỗi:", error);
+      Alert.alert("Lỗi", "Có lỗi xảy ra, vui lòng thử lại.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -31,7 +84,7 @@ const RegisterPage = () => {
         Đăng ký ngay với chúng tôi, để sử dụng ngay các dịch vụ.
       </Text>
 
-      {/* Email Input */}
+      {/* Các Input thông tin đăng ký */}
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -39,8 +92,6 @@ const RegisterPage = () => {
         value={email}
         onChangeText={setEmail}
       />
-
-      {/* Password Input */}
       <View style={styles.passwordContainer}>
         <TextInput
           style={[styles.input, styles.passwordInput]}
@@ -48,28 +99,24 @@ const RegisterPage = () => {
           placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={!showPassword} // Hiện hoặc ẩn mật khẩu
+          secureTextEntry={!showPassword}
         />
         <TouchableOpacity
           style={styles.showPasswordButton}
-          onPressIn={() => setShowPassword(true)} // Hiện mật khẩu khi nhấn giữ
-          onPressOut={() => setShowPassword(false)} // Ẩn mật khẩu khi thả tay
+          onPressIn={() => setShowPassword(true)}
+          onPressOut={() => setShowPassword(false)}
         >
           <Text style={styles.showPasswordText}>👁️</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Nhập lại Mật khẩu */}
       <TextInput
         style={styles.input}
         placeholder="Nhập lại mật khẩu"
         placeholderTextColor="#999"
         value={confirmPassword}
         onChangeText={setConfirmPassword}
-        secureTextEntry={!showPassword} // Hiện hoặc ẩn mật khẩu
+        secureTextEntry={!showPassword}
       />
-
-      {/* Họ Input */}
       <TextInput
         style={styles.input}
         placeholder="Họ"
@@ -77,8 +124,6 @@ const RegisterPage = () => {
         value={lastName}
         onChangeText={setLastName}
       />
-
-      {/* Tên Input */}
       <TextInput
         style={styles.input}
         placeholder="Tên"
@@ -86,8 +131,6 @@ const RegisterPage = () => {
         value={firstName}
         onChangeText={setFirstName}
       />
-
-      {/* Địa chỉ Input */}
       <TextInput
         style={styles.input}
         placeholder="Địa chỉ"
@@ -95,8 +138,6 @@ const RegisterPage = () => {
         value={address}
         onChangeText={setAddress}
       />
-
-      {/* Số điện thoại Input */}
       <TextInput
         style={styles.input}
         placeholder="Số điện thoại"
@@ -105,36 +146,28 @@ const RegisterPage = () => {
         onChangeText={setPhone}
         keyboardType="phone-pad"
       />
-
-      {/* Giới tính Dropdown */}
-      <View style={styles.genderContainer}>
-        <Text style={styles.genderLabel}>Giới tính</Text>
-        <Picker
-          selectedValue={gender}
-          style={styles.picker}
-          onValueChange={(itemValue) => setGender(itemValue)}
-        >
-          <Picker.Item label="Nam" value="male" />
-          <Picker.Item label="Nữ" value="female" />
-          <Picker.Item label="Khác" value="other" />
-        </Picker>
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Ngày sinh (dd-mm-yyyy)"
+        placeholderTextColor="#999"
+        value={birth}
+        onChangeText={setBirth}
+      />
 
       {/* Nút Đăng ký */}
       <StyledButton
         title="Đăng ký"
-        onPress={() => console.log('Đăng ký')} // Xử lý đăng ký
+        onPress={handleRegister}
         style={{ backgroundColor: Colors.primary }}
       />
 
       <View style={styles.registerContainer}>
-              <Text style={styles.noAccountText}>Bạn đã có tài khoản?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('LoginPage')}>
-                <Text style={styles.registerText}> Đăng nhập ngay</Text>
-              </TouchableOpacity>
-            </View>
+        <Text style={styles.noAccountText}>Bạn đã có tài khoản?</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('LoginPage')}>
+          <Text style={styles.registerText}> Đăng nhập ngay</Text>
+        </TouchableOpacity>
+      </View>
     </View>
-    
   );
 };
 
@@ -177,7 +210,7 @@ const styles = StyleSheet.create({
   },
   passwordContainer: {
     width: '90%',
-    flexDirection: 'row', 
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
   },
@@ -193,23 +226,6 @@ const styles = StyleSheet.create({
   showPasswordText: {
     fontSize: 18,
     color: '#666',
-  },
-  genderContainer: {
-    width: '90%',
-    marginBottom: 20,
-  },
-  genderLabel: {
-    fontSize: 16,
-    fontFamily: 'OpenSans-Regular',
-    marginBottom: 10,
-    color: '#333',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
   },
   registerContainer: {
     flexDirection: 'row',
