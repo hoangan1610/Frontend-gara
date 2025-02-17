@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Dimensions } from 'react-native';
+import { 
+  View, Text, FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Dimensions, ActivityIndicator 
+} from 'react-native';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -9,6 +11,8 @@ import { BASE_URL } from '../constants/config';
 const HomePage = () => {
   const navigation = useNavigation();
   const [categories, setCategories] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -20,7 +24,19 @@ const HomePage = () => {
       }
     };
 
+    const fetchBestSellers = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/v1/product/best-sellers`);
+        setBestSellers(response.data);
+      } catch (error) {
+        console.error('Error fetching best sellers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCategories();
+    fetchBestSellers();
   }, []);
 
   const renderCategoryItem = ({ item }) => (
@@ -28,6 +44,14 @@ const HomePage = () => {
       <Image source={{ uri: item.image_url }} style={styles.categoryImage} />
       <Text style={styles.categoryName}>{item.name}</Text>
     </View>
+  );
+
+  const renderBestSellerItem = ({ item }) => (
+    <TouchableOpacity style={styles.productItem}>
+      <Image source={{ uri: item.image_url }} style={styles.productImage} />
+      <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+      <Text style={styles.productPrice}>{item.price} đ</Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -38,10 +62,7 @@ const HomePage = () => {
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
 
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm kiếm..."
-        />
+        <TextInput style={styles.searchInput} placeholder="Tìm kiếm..." />
 
         <TouchableOpacity onPress={() => console.log('Thông báo')}>
           <Icon name="notifications-outline" size={24} color="#000" />
@@ -49,7 +70,7 @@ const HomePage = () => {
 
         <TouchableOpacity onPress={() => navigation.navigate('ProfileScreen')}>
           <Image
-            source={{ uri: 'https://via.placeholder.com/40' }} 
+            source={{ uri: 'https://via.placeholder.com/40' }}
             style={styles.userAvatar}
           />
         </TouchableOpacity>
@@ -82,6 +103,27 @@ const HomePage = () => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.categoryList}
       />
+
+      {/* Sản phẩm bán chạy */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
+        <TouchableOpacity onPress={() => console.log('Xem tất cả')}>
+          <Text style={styles.viewAll}>Xem tất cả</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" />
+      ) : (
+        <FlatList
+          data={bestSellers}
+          renderItem={renderBestSellerItem}
+          keyExtractor={(item) => item.id.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.productList}
+        />
+      )}
     </View>
   );
 };
@@ -153,6 +195,44 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  viewAll: {
+    color: '#007bff',
+    fontSize: 14,
+  },
+  productList: {
+    paddingHorizontal: 10,
+  },
+  productItem: {
+    marginRight: 15,
+    alignItems: 'center',
+    width: 120,
+  },
+  productImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    marginBottom: 5,
+  },
+  productName: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  productPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#d9534f',
   },
 });
 
