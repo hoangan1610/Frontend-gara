@@ -22,8 +22,10 @@
     "react-native-responsive-screen": "^1.4.2",
     "react-native-safe-area-context": "^5.1.0",
     "react-native-screens": "^4.5.0",
+    "react-native-swiper": "^1.6.0",
     "react-native-vector-icons": "^10.2.0",
-    "twilio": "^5.4.3"
+    "twilio": "^5.4.3",
+    "@react-native-async-storage/async-storage": "1.23.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

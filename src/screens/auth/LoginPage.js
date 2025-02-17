@@ -1,76 +1,91 @@
+// screens/LoginPage.js
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import StyledButton from '../../components/StyledButton';
 import { Colors } from '../../constants';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import SocialLogin from '../../components/SocialLogin'; // Import component SocialLogin
-import { BASE_URL } from '../../constants/config';// Import BASE_URL từ config.js
+import SocialLogin from '../../components/SocialLogin';
+import { BASE_URL } from '../../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false); 
   const navigation = useNavigation();
 
   // Hàm xử lý đăng nhập qua API
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
+      return;
+    }
+  
+    setLoading(true); // Bắt đầu loading
     try {
       const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // Giả sử API của bạn nhận vào username và password, nếu cần đổi sang email hãy chỉnh sửa lại
         body: JSON.stringify({
           email: email,
           password: password,
         }),
       });
-
+  
       const data = await response.json();
-
+  
       if (response.ok) {
-        // Đăng nhập thành công: lưu token nếu cần và chuyển hướng sang trang Home
         console.log('Đăng nhập thành công:', data);
-        navigation.navigate('HomePage');
+  
+        // Lưu token vào AsyncStorage
+        if (data.access_token) {
+          await AsyncStorage.setItem('authToken', data.access_token);
+  
+          // Chuyển hướng đến HomePage sau khi lưu token
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'HomePage' }],
+          });
+        } else {
+          console.error('Token không tồn tại:', data);
+          Alert.alert('Lỗi', 'Đăng nhập thành công nhưng không nhận được token');
+        }
       } else {
-        // Xử lý lỗi đăng nhập (hiển thị thông báo lỗi)
         console.error('Đăng nhập thất bại:', data.message);
-        alert(data.message || 'Đăng nhập thất bại');
+        Alert.alert('Đăng nhập thất bại', data.message || 'Vui lòng kiểm tra lại thông tin đăng nhập');
       }
     } catch (error) {
       console.error('Lỗi:', error);
-      alert('Có lỗi xảy ra, vui lòng thử lại.');
+      Alert.alert('Lỗi', 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setLoading(false); // Kết thúc loading
     }
   };
-
-  // Xử lý đăng nhập bằng social media
-  const handleFacebookLogin = () => {
-    console.log('Đăng nhập bằng Facebook');
-  };
-
-  const handleGoogleLogin = () => {
-    console.log('Đăng nhập bằng Google');
-  };
+  
 
   return (
     <View style={styles.container}>
       {/* Nút Back */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Login')}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={24} color={Colors.black} />
       </TouchableOpacity>
 
       {/* Logo HQA */}
       <Text style={styles.logo}>HQA</Text>
 
-      {/* Username Input */}
+      {/* Email Input */}
       <TextInput
         style={styles.input}
-        placeholder="Tên đăng nhập"
+        placeholder="Email"
         placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
       />
 
       {/* Password Input */}
@@ -81,14 +96,18 @@ const LoginPage = () => {
           placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={!showPassword} // Hiện hoặc ẩn mật khẩu
+          secureTextEntry={!showPassword} 
+          autoCapitalize="none"
         />
         <TouchableOpacity
           style={styles.showPasswordButton}
-          onPressIn={() => setShowPassword(true)} // Hiện mật khẩu khi nhấn giữ
-          onPressOut={() => setShowPassword(false)} // Ẩn mật khẩu khi thả tay
+          onPress={() => setShowPassword(!showPassword)}
         >
-          <Text style={styles.showPasswordText}>👁️</Text>
+          <Ionicons 
+            name={showPassword ? "eye-off" : "eye"}
+            size={20}
+            color="#666"
+          />
         </TouchableOpacity>
       </View>
 
@@ -103,15 +122,16 @@ const LoginPage = () => {
       {/* Nút Đăng nhập */}
       <StyledButton
         title="Đăng nhập"
-        onPress={handleLogin} // Gọi hàm handleLogin để thực hiện đăng nhập qua API
+        onPress={handleLogin}
         style={{ backgroundColor: Colors.primary }}
+        disabled={loading} 
       />
 
+      {/* Hiển thị Loading khi đang đăng nhập */}
+      {loading && <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />}
+
       {/* Sử dụng lại SocialLogin */}
-      <SocialLogin
-        onFacebookPress={handleFacebookLogin}
-        onGooglePress={handleGoogleLogin}
-      />
+      <SocialLogin />
 
       {/* Đăng ký */}
       <View style={styles.registerContainer}>
@@ -141,10 +161,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   logo: {
-    fontSize: 50,
+    fontSize: 45,
     fontWeight: 'bold',
     fontFamily: 'OpenSans-Bold',
-    marginBottom: 40,
+    marginBottom: 30,
     color: Colors.black,
   },
   input: {
@@ -170,17 +190,11 @@ const styles = StyleSheet.create({
   },
   showPasswordButton: {
     position: 'absolute',
-    right: 5,
-    top: '35%',
-    transform: [{ translateY: -10 }],
-  },
-  showPasswordText: {
-    fontSize: 18,
-    color: '#666',
+    right: 10,
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
-    right: 40,
+    right: 20,
     marginBottom: 20,
   },
   forgotPasswordText: {
