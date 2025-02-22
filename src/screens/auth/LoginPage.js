@@ -48,7 +48,7 @@ const LoginPage = () => {
           // Chuyển hướng đến HomePage sau khi lưu token
           navigation.reset({
             index: 0,
-            routes: [{ name: 'HomePage' }],
+            routes: [{ name: 'Main' }],
           });
         } else {
           console.error('Token không tồn tại:', data);
