@@ -1,4 +1,9 @@
 {
   "name": "fe_app",
-  "displayName": "fe_app"
+  "displayName": "fe_app",
+  "expo": {
+    "packagerOpts": {
+      "port": 3001
+    }
+  }
 }

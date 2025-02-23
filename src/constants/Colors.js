@@ -3,4 +3,6 @@ export default colors = {
     black: '#000000',
     white: '#ffffff',
     green: '#32cd32',
+    orange: '#EE8924',
+    gray: '#808080'
 }

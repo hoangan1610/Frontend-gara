@@ -17,18 +17,22 @@ const Login = () => {
       />
 
       {/* Nút Login */}
-      <StyledButton
-        title="Login"
+      <TouchableOpacity 
+        activeOpacity={0.7}
         onPress={() => navigation.navigate('LoginPage')}
-        style={{ backgroundColor: Colors.primary }}
-      />
+        style={[styles.button, { backgroundColor: Colors.primary }]}
+      >
+        <Text style={styles.buttonText}>Login</Text>
+      </TouchableOpacity>
 
       {/* Nút Register */}
-      <StyledButton
-        title="Register"
+      <TouchableOpacity 
+        activeOpacity={0.7}
         onPress={() => navigation.navigate('RegisterPage')}
-        style={{ backgroundColor: Colors.green}}
-      />
+        style={[styles.button, { backgroundColor: Colors.green }]}
+      >
+        <Text style={styles.buttonText}>Register</Text>
+      </TouchableOpacity>
 
       {/* Continue as Guest */}
       <TouchableOpacity onPress={() => navigation.navigate('HomePage')}>
@@ -50,13 +54,25 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 500,
+    height: 400,  // Giảm chiều cao để nút Login không bị sát quá
     resizeMode: 'contain',
-    marginBottom: 40,
+    marginBottom: 20,
+  },
+  button: {
+    width: '80%',
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   guestText: {
     fontSize: 14,
-    color: '#6c757d', 
+    color: '#007bff', 
     marginTop: 20,
     textDecorationLine: 'underline',
     fontFamily: 'OpenSans-Regular',
