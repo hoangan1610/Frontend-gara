@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import StyledButton from '../../components/StyledButton';
 import { Colors } from '../../constants';
 import { useNavigation } from '@react-navigation/native';
-import { BASE_URL } from '../../constants/config'; // Import BASE_URL từ file cấu hình
+import { BASE_URL } from '../../constants/config';
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -14,11 +14,11 @@ const RegisterPage = () => {
   const [lastName, setLastName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
-  const [birth, setBirth] = useState(''); // Trường nhập ngày sinh theo định dạng dd-mm-yyyy
+  const [birth, setBirth] = useState(''); // dd-mm-yyyy
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
 
-  // Hàm chuyển đổi chuỗi dd-mm-yyyy thành chuỗi ISO (yyyy-mm-ddT00:00:00.000Z)
+  // Hàm chuyển đổi dd-mm-yyyy sang ISO (yyyy-mm-ddT00:00:00.000Z)
   const parseBirthDate = (dateStr) => {
     const parts = dateStr.split('-');
     if (parts.length !== 3) return "";
@@ -40,29 +40,26 @@ const RegisterPage = () => {
     }
 
     const payload = {
-      email: email,
-      password: password,
+      email,
+      password,
       first_name: firstName,
       last_name: lastName,
-      phone: phone,
+      phone,
       birth: isoBirth,
     };
 
     try {
+      // Gọi API đăng ký
       const response = await fetch(`${BASE_URL}/api/v1/auth/regist`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Thông báo", "Vui lòng xác thực số điện thoại để hoàn tất đăng ký");
-        // Chuyển hướng sang trang xác thực số điện thoại, truyền phone qua params
-        navigation.navigate('PhoneVerificationPage', { phone });
+        Alert.alert("Thông báo", "Mã OTP đã được gửi đến email của bạn");
+        navigation.navigate('EmailVerificationPage', { email });
       } else {
         Alert.alert("Lỗi", data.message || "Đăng ký thất bại");
       }
@@ -74,17 +71,14 @@ const RegisterPage = () => {
 
   return (
     <View style={styles.container}>
-      {/* Nút Back */}
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={24} color={Colors.black} />
       </TouchableOpacity>
 
-      {/* Chữ Đăng ký */}
       <Text style={styles.title}>
         Đăng ký ngay với chúng tôi, để sử dụng ngay các dịch vụ.
       </Text>
 
-      {/* Các Input thông tin đăng ký */}
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -154,7 +148,6 @@ const RegisterPage = () => {
         onChangeText={setBirth}
       />
 
-      {/* Nút Đăng ký */}
       <StyledButton
         title="Đăng ký"
         onPress={handleRegister}

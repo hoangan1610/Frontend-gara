@@ -1,78 +1,75 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { BASE_URL } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import StyledButton from '../../components/StyledButton';
-import { Colors } from '../../constants';
 
-const ForgotPasswordPage = () => {
+const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
+
+  const handleSendOTP = async () => {
+    if (!email) {
+      Alert.alert('Lỗi', 'Vui lòng nhập email');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/auth/request-reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('Thành công', data.message);
+        // Sau khi gửi email thành công, chuyển sang màn hình ResetPasswordScreen.
+        navigation.navigate('ResetPasswordScreen', { email });
+      } else {
+        Alert.alert('Lỗi', data.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Nút Back */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color={Colors.black} />
-      </TouchableOpacity>
-
-      {/* Tiêu đề */}
-      <Text style={styles.title}>Đặt lại mật khẩu</Text>
-
-      {/* Mô tả */}
-      <Text style={styles.description}>
-        Nhập Email đã đăng ký của bạn để reset lại mật khẩu
-      </Text>
-
-      {/* Nhập Email */}
-      <TextInput
+      <Text style={styles.title}>Quên mật khẩu</Text>
+      <TextInput 
         style={styles.input}
-        placeholder="Email"
+        placeholder="Nhập email của bạn"
         placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
-
-      {/* Nút Đặt lại mật khẩu */}
-      <StyledButton
-        title="Đặt lại mật khẩu"
-        onPress={() => console.log('Đặt lại mật khẩu')} // Xử lý reset mật khẩu
-        style={{ backgroundColor: Colors.primary }}
-      />
+      <TouchableOpacity style={styles.button} onPress={handleSendOTP} disabled={loading}>
+        <Text style={styles.buttonText}>Gửi OTP</Text>
+      </TouchableOpacity>
+      {loading && <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 20 }} />}
     </View>
   );
 };
 
-export default ForgotPasswordPage;
+export default ForgotPasswordScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8f9fa',
     paddingHorizontal: 20,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: 'bold',
-    fontFamily: 'OpenSans-Bold',
-    marginBottom: 10,
-    color: Colors.black,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'OpenSans-Regular',
-    marginBottom: 30,
-    textAlign: 'center',
-    width: '80%',
+    marginBottom: 20,
+    color: '#000',
   },
   input: {
     width: '90%',
@@ -80,10 +77,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     paddingHorizontal: 15,
-    fontFamily: 'OpenSans-Regular',
     fontSize: 16,
     marginBottom: 20,
-    borderColor: '#ddd',
     borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });

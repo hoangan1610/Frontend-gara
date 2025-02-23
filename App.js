@@ -8,9 +8,11 @@ import RegisterPage from './src/screens/auth/RegisterPage';
 import ForgotPasswordPage from './src/screens/auth/ForgotPasswordPage';
 import HomePage from './src/screens/home/HomePage';
 import PhoneVerificationPage from './src/screens/auth/PhoneVerificationPage';
-import ProfilePage from './src/screens/ProfilePage'; // Tạo file ProfileScreen nếu chưa có
+import ProfilePage from './src/screens/profile/ProfilePage'; 
 import { Ionicons } from '@expo/vector-icons';
 import SearchScreen from './src/screens/home/SearchPage';
+import EmailVerificationPage from './src/screens/auth/EmailVerificationPage';
+import ResetPasswordScreen from './src/screens/auth/ResetPasswordPage';
 
 
 const Stack = createNativeStackNavigator();
@@ -51,9 +53,12 @@ const App = () => {
         <Stack.Screen name="RegisterPage" component={RegisterPage} />
         <Stack.Screen name="PhoneVerificationPage" component={PhoneVerificationPage} />
         <Stack.Screen name="ForgotPasswordPage" component={ForgotPasswordPage} />
+        <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
         {/* Sau khi xác thực, chuyển đến MainNavigator có 2 tab Home & Profile */}
         <Stack.Screen name="Main" component={MainNavigator} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="EmailVerificationPage"  component={EmailVerificationPage} options={{ headerShown: false }} />
+
 
       </Stack.Navigator>
     </NavigationContainer>
