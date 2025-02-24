@@ -11,8 +11,8 @@ const Splash = ({navigation}) => {
   return (
     <View style={{flex:1, flexDirection:'column', justifyContent:'center', alignItems:'center', backgroundColor:Colors.white }}>
       <StatusBar barStyle="light-content" hidden={false} backgroundColor="#ffffff"/>
-      <Image source={require('../assets/images/icon_gara.jpg')} style={{width:50, height:50}}/>
-      <Text style={{fontFamily:'OpenSans-Bold', fontSize:40, color:Colors.primary}}>Gara UTE</Text>
+      <Image source={require('../assets/images/icon_gara.png')} style={{width:100, height:100}}/>
+      <Text style={{fontFamily:'OpenSans-Bold', fontSize:40, color:Colors.primary}}>GARA UTE</Text>
     </View>
   )
 }
