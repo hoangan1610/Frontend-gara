@@ -40,29 +40,34 @@ const HomePage = () => {
     fetchBestSellers();
   }, []);
 
-  const renderHeader = () => (
-    <View>
-      <Header navigation={navigation} />
-      <SlideShow />
-      <CategoryList categories={categories} />
-      <BestSellers bestSellers={bestSellers} loading={loading} />
-    </View>
-  );
-
   return (
-    <FlatList
-      data={categories}
-      keyExtractor={(item) => item.id.toString()}
-      renderItem={({ item }) => <CategorySection category={item} />}
-      ListHeaderComponent={renderHeader}
-      contentContainerStyle={styles.container}
-    />
+    <View style={styles.container}>
+      {/* Header được render bên ngoài FlatList, luôn hiển thị cố định */}
+      <Header navigation={navigation} />
+
+      <FlatList
+        data={categories}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => <CategorySection category={item} />}
+        ListHeaderComponent={() => (
+          <>
+            <SlideShow />
+            <CategoryList categories={categories} />
+            <BestSellers bestSellers={bestSellers} loading={loading} />
+          </>
+        )}
+        contentContainerStyle={styles.flatListContainer}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#fff',
+  },
+  flatListContainer: {
     paddingBottom: 20,
   },
 });

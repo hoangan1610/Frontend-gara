@@ -2,12 +2,24 @@ import React from 'react';
 import { FlatList, TouchableOpacity, Image, Text, StyleSheet, View, ActivityIndicator } from 'react-native';
 
 const BestSellers = ({ bestSellers, loading }) => {
+  // Hàm định dạng giá: nếu price là số, thêm dấu phân cách hàng nghìn
+  const formatPrice = (price) => {
+    if (typeof price === 'number') {
+      return price.toLocaleString('vi-VN');
+    }
+    return price;
+  };
+
   if (loading) {
-    return <ActivityIndicator size="large" color="#000" />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#000" />
+      </View>
+    );
   }
   
   return (
-    <View>
+    <View style={styles.container}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
       </View>
@@ -19,8 +31,10 @@ const BestSellers = ({ bestSellers, loading }) => {
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.productItem}>
             <Image source={{ uri: item.image_url }} style={styles.productImage} />
-            <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.productPrice}>{item.price} đ</Text>
+            <Text style={styles.productName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.productPrice}>{formatPrice(item.price)} đ</Text>
           </TouchableOpacity>
         )}
         contentContainerStyle={styles.productList}
@@ -30,41 +44,70 @@ const BestSellers = ({ bestSellers, loading }) => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionHeader: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    marginHorizontal: 10,
+    borderRadius: 8,
+    // Shadow cho iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    // Elevation cho Android
+    elevation: 2,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#333',
   },
   productList: {
     paddingHorizontal: 10,
-    marginBottom: 20,
   },
   productItem: {
     marginRight: 15,
     alignItems: 'center',
-    width: 120,
-    backgroundColor: '#f8f8f8',
-    padding: 10,
-    borderRadius: 10,
+    width: 140,
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
     marginBottom: 15,
+    // Shadow cho iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    // Elevation cho Android
+    elevation: 3,
   },
   productImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    marginBottom: 5,
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    marginBottom: 10,
+    resizeMode: 'cover',
   },
   productName: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
+    color: '#333',
+    marginBottom: 5,
   },
   productPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#d9534f',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e53935',
+    marginTop: 5,
   },
 });
 

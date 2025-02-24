@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import SearchScreen from './src/screens/home/SearchPage';
 import EmailVerificationPage from './src/screens/auth/EmailVerificationPage';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordPage';
+import EditProfileScreen from './src/screens/profile/EditProfilePage';
+import ChangeEmailScreen from './src/screens/profile/ChangeEmailPage';
+import ProfileScreen from './src/screens/profile/ProfilePage';
 
 
 const Stack = createNativeStackNavigator();
@@ -54,7 +57,10 @@ const App = () => {
         <Stack.Screen name="PhoneVerificationPage" component={PhoneVerificationPage} />
         <Stack.Screen name="ForgotPasswordPage" component={ForgotPasswordPage} />
         <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
-        {/* Sau khi xác thực, chuyển đến MainNavigator có 2 tab Home & Profile */}
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+
         <Stack.Screen name="Main" component={MainNavigator} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="EmailVerificationPage"  component={EmailVerificationPage} options={{ headerShown: false }} />

@@ -7,7 +7,7 @@ const SlideShow = () => {
     <View style={styles.slideShow}>
       <Swiper autoplay height={200} dotStyle={styles.dot} activeDotStyle={styles.activeDot}>
         <Image 
-          source={{ uri: 'https://akauto.com.vn/wp-content/uploads/2023/05/phim-cach-nhiet-o-to-bao-ve-suc-khoe.jpg' }}
+          source={{ uri: 'https://dongdoautohd.vn/wp-content/uploads/2023/08/baner-anh-2.jpg' }}
           style={styles.slideImage}
         />
         <Image 

@@ -1,7 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FlatList, View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import axios from 'axios';
 import { BASE_URL } from '../../constants/config';
+
+// Component riêng để render từng sản phẩm, được bọc bằng React.memo
+const ProductItem = React.memo(({ item }) => {
+  if (item.dummy) {
+    // Trả về view trống để lấp đầy cột nếu là dummy
+    return <View style={[styles.productItem, { opacity: 0 }]} />;
+  }
+  
+  // Hàm định dạng giá: thêm dấu phân cách hàng nghìn nếu price là số
+  const formatPrice = (price) => {
+    if (typeof price === 'number') {
+      return price.toLocaleString('vi-VN');
+    }
+    return price;
+  };
+
+  return (
+    <TouchableOpacity style={styles.productItem}>
+      <Image source={{ uri: item.image_url }} style={styles.productImage} />
+      <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+      <Text style={styles.productPrice}>{formatPrice(item.price)} đ</Text>
+    </TouchableOpacity>
+  );
+});
 
 const CategorySection = ({ category }) => {
   const [products, setProducts] = useState([]);
@@ -9,6 +33,7 @@ const CategorySection = ({ category }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 5; // số sản phẩm mỗi trang
+  const numColumns = 2;
 
   useEffect(() => {
     fetchProducts();
@@ -44,23 +69,20 @@ const CategorySection = ({ category }) => {
   };
 
   // Nếu số sản phẩm lẻ, thêm phần tử dummy để đảm bảo mỗi hàng có 2 cột
-  const dataForFlatList = products.length % 2 !== 0
+  const dataForFlatList = products.length % numColumns !== 0
     ? [...products, { id: 'dummy', dummy: true }]
     : products;
 
-  const renderProductItem = ({ item }) => {
-    if (item.dummy) {
-      // Render view trống để lấp đầy cột
-      return <View style={[styles.productItem, { opacity: 0 }]} />;
-    }
-    return (
-      <TouchableOpacity style={styles.productItem}>
-        <Image source={{ uri: item.image_url }} style={styles.productImage} />
-        <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.productPrice}>{item.price} đ</Text>
-      </TouchableOpacity>
-    );
-  };
+  // Sử dụng useCallback để memo hóa hàm renderItem
+  const renderProductItem = useCallback(({ item }) => <ProductItem item={item} />, []);
+
+  // Giả sử mỗi dòng (row) có chiều cao cố định, ví dụ 200 (có thể điều chỉnh lại theo thiết kế)
+  const ITEM_ROW_HEIGHT = 200;
+  const getItemLayout = useCallback((data, index) => ({
+    length: ITEM_ROW_HEIGHT,
+    offset: ITEM_ROW_HEIGHT * Math.floor(index / numColumns),
+    index,
+  }), []);
 
   return (
     <View style={styles.categorySection}>
@@ -74,7 +96,7 @@ const CategorySection = ({ category }) => {
         data={dataForFlatList}
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id.toString()}
-        numColumns={2} // Hiển thị 2 sản phẩm trên 1 hàng
+        numColumns={numColumns} // Hiển thị 2 sản phẩm trên 1 hàng
         columnWrapperStyle={styles.row} // Căn chỉnh đều giữa các sản phẩm
         showsVerticalScrollIndicator={false}
         onEndReached={() => {
@@ -85,6 +107,12 @@ const CategorySection = ({ category }) => {
         onEndReachedThreshold={0.3}
         ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color="#000" /> : null}
         contentContainerStyle={styles.productList}
+        // Các prop tối ưu hóa hiệu suất
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        getItemLayout={getItemLayout}
       />
     </View>
   );
@@ -93,54 +121,75 @@ const CategorySection = ({ category }) => {
 const styles = StyleSheet.create({
   categorySection: {
     marginVertical: 15,
+    marginHorizontal: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    // Shadow cho iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    // Elevation cho Android
+    elevation: 3,
   },
   categorySectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
   },
   viewAll: {
     color: '#007bff',
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: '500',
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    marginHorizontal: 10,
   },
   productList: {
-    paddingHorizontal: 10,
-    marginBottom: 20,
+    paddingBottom: 10,
   },
   productItem: {
     flex: 1,
     marginHorizontal: 5,
     alignItems: 'center',
     backgroundColor: '#f8f8f8',
-    padding: 10,
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 12,
     marginBottom: 15,
+    // Shadow cho iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    // Elevation cho Android
+    elevation: 2,
   },
   productImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    marginBottom: 5,
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   productName: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
     textAlign: 'center',
+    marginBottom: 5,
   },
   productPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#d9534f',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e53935',
+    marginTop: 5,
   },
 });
 
