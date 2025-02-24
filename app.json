@@ -17,6 +17,9 @@
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/c7480db7-70c9-4490-8535-43bd94287b52"
+    },
+    "packagerOpts": {
+      "port": 3001
     }
   }
 }
