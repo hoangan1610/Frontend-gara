@@ -55,7 +55,7 @@ const SearchScreen = ({ navigation, route }) => {
   const renderItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.resultItem} 
-      onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+      onPress={() => navigation.navigate('ProductDetail', { productPath: item.path })}
     >
       <Image source={{ uri: item.image_url }} style={styles.resultImage} />
       <View style={styles.resultTextContainer}>

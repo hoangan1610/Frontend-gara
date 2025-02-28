@@ -2,9 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { FlatList, View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import axios from 'axios';
 import { BASE_URL } from '../../constants/config';
+import { useNavigation } from '@react-navigation/native'; // Sử dụng hook useNavigation
 
 // Component riêng để render từng sản phẩm, được bọc bằng React.memo
 const ProductItem = React.memo(({ item }) => {
+  const navigation = useNavigation(); // Lấy navigation từ hook
+  
+
   if (item.dummy) {
     // Trả về view trống để lấp đầy cột nếu là dummy
     return <View style={[styles.productItem, { opacity: 0 }]} />;
@@ -19,7 +23,11 @@ const ProductItem = React.memo(({ item }) => {
   };
 
   return (
-    <TouchableOpacity style={styles.productItem}>
+    <TouchableOpacity 
+      style={styles.productItem}
+      // Truyền đúng tham số productPath khi điều hướng
+      onPress={() => navigation.navigate('ProductDetail', { productPath: item.path })}
+    >
       <Image source={{ uri: item.image_url }} style={styles.productImage} />
       <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
       <Text style={styles.productPrice}>{formatPrice(item.price)} đ</Text>
@@ -76,7 +84,7 @@ const CategorySection = ({ category }) => {
   // Sử dụng useCallback để memo hóa hàm renderItem
   const renderProductItem = useCallback(({ item }) => <ProductItem item={item} />, []);
 
-  // Giả sử mỗi dòng (row) có chiều cao cố định, ví dụ 200 (có thể điều chỉnh lại theo thiết kế)
+  // Giả sử mỗi dòng (row) có chiều cao cố định, ví dụ 200 (có thể điều chỉnh theo thiết kế)
   const ITEM_ROW_HEIGHT = 200;
   const getItemLayout = useCallback((data, index) => ({
     length: ITEM_ROW_HEIGHT,
@@ -107,7 +115,6 @@ const CategorySection = ({ category }) => {
         onEndReachedThreshold={0.3}
         ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color="#000" /> : null}
         contentContainerStyle={styles.productList}
-        // Các prop tối ưu hóa hiệu suất
         removeClippedSubviews={true}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
@@ -125,11 +132,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     paddingVertical: 10,
-    // Shadow cho iOS
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    // Elevation cho Android
     elevation: 3,
   },
   categorySectionHeader: {
@@ -165,11 +170,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginBottom: 15,
-    // Shadow cho iOS
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    // Elevation cho Android
     elevation: 2,
   },
   productImage: {

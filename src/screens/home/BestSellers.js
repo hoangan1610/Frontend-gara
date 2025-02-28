@@ -1,7 +1,10 @@
 import React from 'react';
 import { FlatList, TouchableOpacity, Image, Text, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const BestSellers = ({ bestSellers, loading }) => {
+  const navigation = useNavigation();
+
   // Hàm định dạng giá: nếu price là số, thêm dấu phân cách hàng nghìn
   const formatPrice = (price) => {
     if (typeof price === 'number') {
@@ -29,7 +32,10 @@ const BestSellers = ({ bestSellers, loading }) => {
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.productItem}>
+          <TouchableOpacity 
+            style={styles.productItem}
+            onPress={() => navigation.navigate('ProductDetail', { productPath: item.path })}
+          >
             <Image source={{ uri: item.image_url }} style={styles.productImage} />
             <Text style={styles.productName} numberOfLines={1}>
               {item.name}

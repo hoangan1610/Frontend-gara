@@ -16,7 +16,7 @@ import ResetPasswordScreen from './src/screens/auth/ResetPasswordPage';
 import EditProfileScreen from './src/screens/profile/EditProfilePage';
 import ChangeEmailScreen from './src/screens/profile/ChangeEmailPage';
 import ProfileScreen from './src/screens/profile/ProfilePage';
-
+import ProductDetailScreen from './src/screens/product/ProductDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -64,7 +64,7 @@ const App = () => {
         <Stack.Screen name="Main" component={MainNavigator} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="EmailVerificationPage"  component={EmailVerificationPage} options={{ headerShown: false }} />
-
+        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
 
       </Stack.Navigator>
     </NavigationContainer>
