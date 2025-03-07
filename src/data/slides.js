@@ -2,7 +2,7 @@ export const slides = [
     {
       id: '1',
       image: require('../assets/images/onboarding_1.png'),
-      title: 'Welcome to GARA UTE',
+      title: 'Welcome to HQA',
       description: 'Your one-stop shop for car accessories.',
     },
     {
