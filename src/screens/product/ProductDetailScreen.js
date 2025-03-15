@@ -17,12 +17,13 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     fetchProductDetail();
-  }, []);
+  },[]);
 
   const fetchProductDetail = async () => {
     try {
       // Gọi API với productPath
       const response = await axios.get(`${BASE_URL}/api/v1/product/detail/${productPath}`);
+      console.log('Product Data:', response.data.product);
       setProduct(response.data.product);
     } catch (error) {
       console.error('Error fetching product details:', error);
