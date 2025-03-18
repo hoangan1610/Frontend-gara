@@ -17,6 +17,7 @@ import EditProfileScreen from './src/screens/profile/EditProfilePage';
 import ChangeEmailScreen from './src/screens/profile/ChangeEmailPage';
 import ProfileScreen from './src/screens/profile/ProfilePage';
 import ProductDetailScreen from './src/screens/product/ProductDetailScreen';
+import CartScreen from './src/screens/product/CartScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,7 +66,7 @@ const App = () => {
         <Stack.Screen name="SearchScreen" component={SearchScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="EmailVerificationPage"  component={EmailVerificationPage} options={{ headerShown: false }} />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
-
+        <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
