@@ -1,5 +1,4 @@
-// ProductDetailScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   View, Text, Image, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert 
 } from 'react-native';
@@ -10,35 +9,50 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../../constants/config';
 import Header from '../home/Header';
 import { emitter } from '../../utils/eventEmitter';
+import { useQuery } from 'react-query';
+
+// Cài đặt timeout cho axios (ví dụ 10s)
+axios.defaults.timeout = 10000;
+
+const fetchProductDetail = async (productPath) => {
+  const response = await axios.get(`${BASE_URL}/api/v1/product/detail/${productPath}`);
+  if (response.status !== 200) {
+    throw new Error('Không thể tải chi tiết sản phẩm');
+  }
+  return response.data.product;
+};
 
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productPath } = route.params;
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showSticky, setShowSticky] = useState(false);
   const DETAIL_LIMIT = 200;
   const stickyThreshold = 400;
+  const scrollTimeoutRef = useRef(null);
 
-  useEffect(() => {
-    fetchProductDetail();
-  }, []);
+  // Sử dụng React Query để tải chi tiết sản phẩm (React Query sẽ cache dữ liệu theo key ['productDetail', productPath])
+  const { data: product, isLoading, error } = useQuery(
+    ['productDetail', productPath],
+    () => fetchProductDetail(productPath)
+  );
 
-  const fetchProductDetail = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/api/v1/product/detail/${productPath}`);
-      const fetchedProduct = response.data.product;
-      setProduct(fetchedProduct);
-      if (fetchedProduct.product_options && fetchedProduct.product_options.length > 0) {
-        setSelectedOption(fetchedProduct.product_options[0]);
-      }
-    } catch (error) {
-      console.error('Error fetching product details:', error);
-    } finally {
-      setLoading(false);
+  // Khi có product, chọn mặc định option đầu tiên nếu có
+  React.useEffect(() => {
+    if (product && product.product_options && product.product_options.length > 0) {
+      setSelectedOption(product.product_options[0]);
     }
+  }, [product]);
+
+  const handleScroll = (e) => {
+    const offsetY = e.nativeEvent.contentOffset.y;
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      setShowSticky(offsetY > stickyThreshold);
+    }, 100);
   };
 
   const handleOrder = async () => {
@@ -63,7 +77,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       });
       if (response.ok) {
         Alert.alert('Đặt hàng', 'Sản phẩm đã được thêm vào giỏ hàng');
-        // Phát sự kiện cập nhật giỏ hàng để Header tự động update badge
+        // Phát sự kiện để các Header ở mọi nơi cập nhật số lượng giỏ hàng mới
         emitter.emit('cartUpdated');
       } else {
         const data = await response.json();
@@ -75,19 +89,24 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return <ActivityIndicator size="large" color="#000" style={styles.loader} />;
   }
-
-  if (!product) {
+  if (error || !product) {
     return <Text style={styles.errorText}>Không tìm thấy sản phẩm</Text>;
   }
 
-  const detailText = product.detail;
+  const detailText = product.detail || '';
   const shouldTruncate = detailText.length > DETAIL_LIMIT;
-  const displayedDetail = showFullDetail || !shouldTruncate ? detailText : detailText.substring(0, DETAIL_LIMIT) + '...';
-  const effectivePrice = selectedOption && selectedOption.price ? selectedOption.price : product.price;
-  const totalPrice = (typeof effectivePrice === 'number' ? effectivePrice * quantity : parseFloat(effectivePrice) * quantity) || 0;
+  const displayedDetail = showFullDetail || !shouldTruncate
+    ? detailText
+    : detailText.substring(0, DETAIL_LIMIT) + '...';
+  const effectivePrice = selectedOption && selectedOption.price
+    ? selectedOption.price
+    : product.price;
+  const totalPrice = (typeof effectivePrice === 'number'
+    ? effectivePrice * quantity
+    : parseFloat(effectivePrice) * quantity) || 0;
 
   return (
     <View style={styles.screenContainer}>
@@ -95,10 +114,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       <ScrollView 
         style={styles.container} 
         contentContainerStyle={{ paddingBottom: 140 }}
-        onScroll={(e) => {
-          const offsetY = e.nativeEvent.contentOffset.y;
-          setShowSticky(offsetY > stickyThreshold);
-        }}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
       >
         <Image source={{ uri: product.image_url }} style={styles.productImage} />
@@ -106,7 +122,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
           <Text style={styles.productName}>{product.name}</Text>
           <View style={styles.priceRow}>
             <Text style={styles.productPrice}>
-              {typeof effectivePrice === 'number' ? effectivePrice.toLocaleString('vi-VN') : effectivePrice} đ
+              {typeof effectivePrice === 'number'
+                ? effectivePrice.toLocaleString('vi-VN')
+                : effectivePrice} đ
             </Text>
           </View>
           {product.product_options && product.product_options.length > 0 && (
@@ -175,7 +193,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
                 <View key={option.id} style={styles.optionItem}>
                   <Text style={styles.optionName}>{option.name}</Text>
                   <Text style={styles.optionPrice}>
-                    {typeof option.price === 'number' ? option.price.toLocaleString('vi-VN') : parseInt(option.price).toLocaleString('vi-VN')} đ
+                    {typeof option.price === 'number'
+                      ? option.price.toLocaleString('vi-VN')
+                      : parseInt(option.price).toLocaleString('vi-VN')} đ
                   </Text>
                 </View>
               ))}

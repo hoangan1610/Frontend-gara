@@ -1,51 +1,47 @@
-// Header.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, Image, StyleSheet, FlatList 
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BASE_URL } from '../../constants/config';
 import { emitter } from '../../utils/eventEmitter';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import { useCart } from '../../hooks/useCart';
+
+const DEBOUNCE_DELAY = 500; // 500ms
 
 const Header = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
-  const [profile, setProfile] = useState(null);
-  const isFocused = useIsFocused();
   const [suggestions, setSuggestions] = useState([]);
-  // State để lưu số lượng sản phẩm trong giỏ hàng
-  const [cartCount, setCartCount] = useState(0);
+  const debounceTimerRef = useRef(null);
 
-  // Load thông tin người dùng từ backend
-  const loadProfile = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        console.log('Token không tồn tại, cần đăng nhập');
-        return;
-      }
-      const response = await fetch(`${BASE_URL}/api/v1/user/get-user-info`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setProfile(data);
-      } else {
-        console.error(data.message);
-      }
-    } catch (error) {
-      console.error('Lỗi khi lấy thông tin người dùng:', error);
-    }
+  const { profile, refreshProfile } = useUserProfile();
+  const { cart, loadCart } = useCart();
+
+  // Chỉ gọi API nếu dữ liệu chưa có (để tránh gọi liên tục khi focus)
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile) refreshProfile();
+      if (!cart) loadCart();
+    }, [refreshProfile, loadCart, profile, cart])
+  );
+
+  // Đăng ký sự kiện cập nhật giỏ hàng để luôn load cart mới khi có sự thay đổi
+  React.useEffect(() => {
+    const subscription = emitter.addListener('cartUpdated', () => {
+      loadCart(true);
+    });
+    return () => subscription.remove();
+  }, [loadCart]);
+
+  const debouncedFetchSuggestions = (query) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => fetchSuggestions(query), DEBOUNCE_DELAY);
   };
 
-  // Hàm gợi ý kết quả tìm kiếm
   const fetchSuggestions = async (query) => {
-    if (!query || query.trim() === "") {
+    if (!query.trim()) {
       setSuggestions([]);
       return;
     }
@@ -57,8 +53,8 @@ const Header = ({ navigation }) => {
           id: item.id,
           name: item.name,
           price: item.price,
-          image: item.image_url || "https://via.placeholder.com/150", 
-          path: item.path
+          image: item.image_url || "https://via.placeholder.com/150",
+          path: item.path,
         }));
         setSuggestions(formattedData);
       }
@@ -67,60 +63,23 @@ const Header = ({ navigation }) => {
     }
   };
 
-  // Hàm load số lượng sản phẩm trong giỏ hàng
-  const loadCartCount = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) return;
-      const response = await fetch(`${BASE_URL}/api/v1/cart`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.cart_items) {
-        setCartCount(data.cart_items.length);
-      }
-    } catch (error) {
-      console.error("Lỗi khi tải số lượng giỏ hàng:", error);
-    }
-  };
-
-  // Đăng ký lắng nghe sự kiện 'cartUpdated'
-  useEffect(() => {
-    const subscription = emitter.addListener('cartUpdated', loadCartCount);
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (isFocused) {
-      loadProfile();
-      loadCartCount();
-    }
-  }, [isFocused]);
-
   const handleSubmitEditing = () => {
     navigation.navigate('SearchScreen', { query: searchText });
   };
 
-  // Tạo URL ảnh với timestamp để ép load lại ảnh khi có cập nhật
   const getImageUrl = () => {
-    if (profile && profile.image_url) {
-      return `${profile.image_url}?${new Date().getTime()}`;
-    }
+    if (profile && profile.image_url) return `${profile.image_url}?${new Date().getTime()}`;
     return 'https://via.placeholder.com/40';
   };
 
+  const cartCount = cart && cart.cart_items ? cart.cart_items.length : 0;
+
   return (
     <View style={styles.header}>
-      {/* Nút back trả về trang trước */}
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Icon name="arrow-back" size={24} color="#000" />
       </TouchableOpacity>
-      
-      {/* Thanh tìm kiếm */}
+
       <View style={styles.searchContainer}>
         <TextInput 
           style={styles.searchInput}
@@ -128,7 +87,7 @@ const Header = ({ navigation }) => {
           value={searchText}
           onChangeText={(text) => {
             setSearchText(text);
-            fetchSuggestions(text);
+            debouncedFetchSuggestions(text);
           }}
           returnKeyType="search"
           onSubmitEditing={handleSubmitEditing}
@@ -141,9 +100,7 @@ const Header = ({ navigation }) => {
               renderItem={({ item }) => (
                 <TouchableOpacity 
                   style={styles.suggestionItem} 
-                  onPress={() => {
-                    navigation.navigate('ProductDetail', { productPath: item.path });
-                  }}
+                  onPress={() => navigation.navigate('ProductDetail', { productPath: item.path })}
                 >
                   <Image source={{ uri: item.image }} style={styles.suggestionImage} />
                   <View style={styles.textContainer}>
@@ -158,7 +115,6 @@ const Header = ({ navigation }) => {
         )}
       </View>
 
-      {/* Nút giỏ hàng với badge hiển thị số lượng sản phẩm */}
       <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.cartContainer}>
         <Icon name="cart-outline" size={24} color="#000" />
         {cartCount > 0 && (
@@ -172,103 +128,26 @@ const Header = ({ navigation }) => {
         <Icon name="notifications-outline" size={24} color="#000" />
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-        <Image
-          source={{ uri: getImageUrl() }}
-          style={styles.userAvatar}
-        />
+        <Image source={{ uri: getImageUrl() }} style={styles.userAvatar} />
       </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-  },
-  searchContainer: {
-    width: '60%',
-    alignItems: 'center'
-  },
-  searchInput: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    width: '100%',
-    paddingHorizontal: 15,
-    marginHorizontal: 10,
-    height: 40,
-    textAlignVertical: 'center',
-  },
-  userAvatar: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#2563eb',
-  },
-  suggestionsContainer: {
-    position: "absolute",
-    top: 50,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    borderRadius: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    zIndex: 10,
-    maxHeight: 400,
-  },
-  suggestionItem: {
-    flexDirection: "row", 
-    alignItems: "center",
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  productPrice: {
-    fontSize: 14,
-    color: "red",
-  },
-  suggestionImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  textContainer: {
-    flex: 1
-  },
-  cartContainer: {
-    position: 'relative',
-    padding: 5,
-  },
-  badge: {
-    position: 'absolute',
-    right: 0,
-    top: -5,
-    backgroundColor: 'red',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10, backgroundColor: '#fff' },
+  searchContainer: { width: '60%', alignItems: 'center' },
+  searchInput: { backgroundColor: '#f0f0f0', borderRadius: 20, width: '100%', paddingHorizontal: 15, marginHorizontal: 10, height: 40, textAlignVertical: 'center' },
+  userAvatar: { width: 35, height: 35, borderRadius: 20, borderWidth: 2, borderColor: '#2563eb' },
+  suggestionsContainer: { position: "absolute", top: 50, left: 0, right: 0, backgroundColor: "white", borderRadius: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, zIndex: 10, maxHeight: 400 },
+  suggestionItem: { flexDirection: "row", alignItems: "center", padding: 10, borderBottomWidth: 1, borderBottomColor: "#ddd" },
+  productName: { fontSize: 16, fontWeight: "bold" },
+  productPrice: { fontSize: 14, color: "red" },
+  suggestionImage: { width: 60, height: 60, borderRadius: 8, marginRight: 10 },
+  textContainer: { flex: 1 },
+  cartContainer: { position: 'relative', padding: 5 },
+  badge: { position: 'absolute', right: 0, top: -5, backgroundColor: 'red', borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
+  badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
 });
 
 export default Header;

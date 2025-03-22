@@ -1,59 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity 
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Image, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { BASE_URL } from '../../constants/config';
 
 const ProfileScreen = ({ navigation }) => {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const isFocused = useIsFocused();
+  const { profile, loading, refreshProfile } = useUserProfile();
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Hàm load thông tin người dùng từ BE
-  const loadProfile = async () => {
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        console.log('Token không tồn tại, cần đăng nhập');
-        return;
-      }
-      const response = await fetch(`${BASE_URL}/api/v1/user/get-user-info`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setProfile(data);
-      } else {
-        console.error(data.message);
-      }
-    } catch (error) {
-      console.error('Lỗi khi lấy thông tin người dùng:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshProfile();
+    setRefreshing(false);
+  }, [refreshProfile]);
 
-  useEffect(() => {
-    if (isFocused) {
-      loadProfile();
-    }
-  }, [isFocused]);
-
-  if (loading) {
+  if (loading && !profile) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#2563eb" />
@@ -65,15 +25,21 @@ const ProfileScreen = ({ navigation }) => {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>Không tải được thông tin người dùng</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={refreshProfile}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Header với nút back */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
@@ -118,82 +84,21 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    padding: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  profileImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#2563eb',
-    alignSelf: 'center',
-  },
-  name: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  infoContainer: {
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    width: 120,
-  },
-  infoText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-    flexWrap: 'wrap',
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { padding: 20, backgroundColor: '#f8f9fa' },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', marginLeft: 10 },
+  profileImage: { width: 140, height: 140, borderRadius: 70, marginBottom: 20, borderWidth: 2, borderColor: '#2563eb', alignSelf: 'center' },
+  name: { fontSize: 26, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  infoContainer: { marginBottom: 20, backgroundColor: '#fff', borderRadius: 10, padding: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
+  infoRow: { flexDirection: 'row', marginBottom: 10 },
+  infoLabel: { fontSize: 16, fontWeight: 'bold', color: '#333', width: 120 },
+  infoText: { fontSize: 16, color: '#333', flex: 1, flexWrap: 'wrap' },
+  button: { backgroundColor: '#2563eb', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignItems: 'center', marginBottom: 30 },
+  buttonText: { color: '#fff', fontSize: 16 },
+  errorText: { fontSize: 16, color: 'red', marginBottom: 10 },
+  retryButton: { backgroundColor: '#2563eb', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5 },
+  retryButtonText: { color: '#fff', fontSize: 16 }
 });
 
 export default ProfileScreen;
