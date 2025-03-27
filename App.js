@@ -70,6 +70,8 @@ const App = () => {
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          
+          <Stack.Screen name="Home" component={HomePage} />
 
           <Stack.Screen name="Main" component={MainNavigator} />
           <Stack.Screen name="SearchScreen" component={SearchScreen} options={{ headerShown: false }} />

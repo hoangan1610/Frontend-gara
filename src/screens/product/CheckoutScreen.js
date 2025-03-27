@@ -1,18 +1,19 @@
 import React from 'react';
 import { 
-  View, Text, ActivityIndicator, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, Alert 
+  View, Text, ActivityIndicator, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, Alert, ScrollView 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { BASE_URL } from '../../constants/config';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 
 const CheckoutScreen = ({ route, navigation }) => {
   const { selectedItems, cart } = route.params;
   const [address, setAddress] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState("COD"); // Mặc định COD
 
-  // Tích hợp hook useUserProfile đã có
+  // Hook lấy thông tin người dùng
   const { profile: userInfo, loading, error, refreshProfile } = useUserProfile();
 
   React.useEffect(() => {
@@ -93,15 +94,38 @@ const CheckoutScreen = ({ route, navigation }) => {
     { id: "BANK", label: "Ngân hàng" },
   ];
 
+  // Hàm gọi API xóa từng mặt hàng khỏi giỏ hàng theo endpoint đã định nghĩa
+  const deleteCartItem = async (cartItemId) => {
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) return;
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/cart/cart-item/delete/${cartItemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Có lỗi xảy ra khi xóa sản phẩm khỏi giỏ hàng');
+      }
+    } catch (error) {
+      console.error("Error deleting cart item:", error);
+      throw error;
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!address) {
       Alert.alert('Thông báo', 'Vui lòng nhập địa chỉ giao hàng');
       return;
     }
+    // Gửi object product để phía backend truy cập item.product.id,…
     const orderItems = cart.cart_items
       .filter(item => selectedItems.includes(item.id))
       .map(item => ({
-        product_id: item.product.id,
+        product: item.product,
         quantity: item.quantity,
         product_option: item.product_option || {},
       }));
@@ -129,6 +153,26 @@ const CheckoutScreen = ({ route, navigation }) => {
       });
       const data = await response.json();
       if (response.ok) {
+        // Sau khi đặt hàng thành công, gọi API xóa các mặt hàng đã đặt khỏi giỏ hàng
+        for (const item of cart.cart_items) {
+          if (selectedItems.includes(item.id)) {
+            try {
+              await deleteCartItem(item.id);
+            } catch (err) {
+              console.error("Failed to delete cart item:", item.id, err);
+            }
+          }
+        }
+        // Cập nhật AsyncStorage giỏ hàng
+        const storedCart = await AsyncStorage.getItem('cart');
+        if (storedCart) {
+          const currentCart = JSON.parse(storedCart);
+          const updatedCartItems = currentCart.cart_items.filter(
+            item => !selectedItems.includes(item.id)
+          );
+          const updatedCart = { ...currentCart, cart_items: updatedCartItems };
+          await AsyncStorage.setItem('cart', JSON.stringify(updatedCart));
+        }
         Alert.alert('Đặt hàng thành công', 'Đơn hàng của bạn đã được đặt thành công', [
           { text: 'OK', onPress: () => navigation.navigate('Home') }
         ]);
@@ -141,67 +185,77 @@ const CheckoutScreen = ({ route, navigation }) => {
     }
   };
 
-  const renderFooter = () => (
-    <View>
-      <View style={styles.totalContainer}>
-        <Text style={styles.totalLabel}>Tổng tiền:</Text>
-        <Text style={styles.totalText}>{total.toLocaleString()} đ</Text>
-      </View>
-      <View style={styles.userInfoContainer}>
-        <Text style={styles.sectionTitle}>Thông tin người nhận</Text>
-        <Text style={styles.userInfoText}>
-          {userInfo 
-            ? `${userInfo.first_name || 'Người dùng'} ${userInfo.last_name || ''} - ${userInfo.phone || ''}` 
-            : 'Chưa có thông tin người dùng'}
-        </Text>
-        <Text style={styles.addressLabel}>Địa chỉ giao hàng:</Text>
-        {address ? (
-          <Text style={styles.addressText}>{address}</Text>
-        ) : (
-          <Text style={styles.addressText}>Chưa có địa chỉ. Vui lòng nhập địa chỉ giao hàng.</Text>
-        )}
-        <TextInput 
-          style={styles.addressInput}
-          placeholder="Nhập địa chỉ giao hàng..."
-          value={address}
-          onChangeText={setAddress}
-        />
-      </View>
-      <View style={styles.paymentContainer}>
-        <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-        {paymentOptions.map(option => (
-          <TouchableOpacity 
-            key={option.id} 
-            style={styles.paymentOption} 
-            onPress={() => setPaymentMethod(option.id)}
-          >
-            <View style={styles.radioCircle}>
-              {paymentMethod === option.id && <View style={styles.selectedRb} />}
-            </View>
-            <Text style={styles.paymentLabel}>{option.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <TouchableOpacity style={styles.orderButton} onPress={handlePlaceOrder}>
-        <Text style={styles.orderButtonText}>Đặt hàng</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
-    <View style={styles.screenContainer}>
-      <FlatList 
-        data={cart.cart_items}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
-      />
-    </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={{ flex: 1 }}>
+        <FlatList 
+          data={cart.cart_items}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          keyboardShouldPersistTaps="always" 
+        />
+        {/* Phần form nhập liệu được đặt bên ngoài FlatList */}
+        <ScrollView 
+          contentContainerStyle={styles.formContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.totalContainer}>
+            <Text style={styles.totalLabel}>Tổng tiền:</Text>
+            <Text style={styles.totalText}>{total.toLocaleString()} đ</Text>
+          </View>
+          <View style={styles.userInfoContainer}>
+            <Text style={styles.sectionTitle}>Thông tin người nhận</Text>
+            <Text style={styles.userInfoText}>
+              {userInfo 
+                ? `${userInfo.first_name || 'Người dùng'} ${userInfo.last_name || ''} - ${userInfo.phone || ''}` 
+                : 'Chưa có thông tin người dùng'}
+            </Text>
+            <Text style={styles.addressLabel}>Địa chỉ giao hàng:</Text>
+            {address ? (
+              <Text style={styles.addressText}>{address}</Text>
+            ) : (
+              <Text style={styles.addressText}>Chưa có địa chỉ. Vui lòng nhập địa chỉ giao hàng.</Text>
+            )}
+            <TextInput 
+              style={styles.addressInput}
+              placeholder="Nhập địa chỉ giao hàng..."
+              value={address}
+              onChangeText={setAddress}
+            />
+          </View>
+          <View style={styles.paymentContainer}>
+            <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+            {paymentOptions.map(option => (
+              <TouchableOpacity 
+                key={option.id} 
+                style={styles.paymentOption} 
+                onPress={() => setPaymentMethod(option.id)}
+              >
+                <View style={styles.radioCircle}>
+                  {paymentMethod === option.id && <View style={styles.selectedRb} />}
+                </View>
+                <Text style={styles.paymentLabel}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.orderButton} onPress={handlePlaceOrder}>
+            <Text style={styles.orderButtonText}>Đặt hàng</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  formContainer: {
+    padding: 15,
+    backgroundColor: '#fff'
+  },
   screenContainer: {
     flex: 1,
     backgroundColor: '#fff',
@@ -286,7 +340,6 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: '#f7f7f7',
     borderRadius: 8,
-    marginHorizontal: 15,
   },
   sectionTitle: {
     fontSize: 18,
@@ -320,7 +373,6 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: '#f7f7f7',
     borderRadius: 8,
-    marginHorizontal: 15,
   },
   paymentOption: {
     flexDirection: 'row',
@@ -352,7 +404,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 20,
-    marginHorizontal: 15,
   },
   orderButtonText: {
     color: '#fff',
