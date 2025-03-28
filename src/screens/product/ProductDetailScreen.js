@@ -1,17 +1,19 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  View, Text, Image, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert 
+  View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, StyleSheet 
 } from 'react-native';
 import axios from 'axios';
-import { Ionicons } from '@expo/vector-icons';
-import Markdown from 'react-native-markdown-display';
+import { useQuery } from 'react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../../constants/config';
 import Header from '../home/Header';
 import { emitter } from '../../utils/eventEmitter';
-import { useQuery } from 'react-query';
+import ProductInfo from './ProductInfo';
+import CommentSection from './CommentSection';
+import ReviewsSection from './ReviewsSection';
+import { useHasPurchased } from '../../hooks/useHasPurchased';
+import { useProductReviews } from '../../hooks/useProductReviews';
 
-// Cài đặt timeout cho axios (ví dụ 10s)
 axios.defaults.timeout = 10000;
 
 const fetchProductDetail = async (productPath) => {
@@ -24,26 +26,29 @@ const fetchProductDetail = async (productPath) => {
 
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productPath } = route.params;
-  const [showFullDetail, setShowFullDetail] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedOption, setSelectedOption] = useState(null);
+  const [showFullDetail, setShowFullDetail] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
-  const DETAIL_LIMIT = 200;
-  const stickyThreshold = 400;
   const scrollTimeoutRef = useRef(null);
 
-  // Sử dụng React Query để tải chi tiết sản phẩm (React Query sẽ cache dữ liệu theo key ['productDetail', productPath])
+  // Lấy chi tiết sản phẩm
   const { data: product, isLoading, error } = useQuery(
     ['productDetail', productPath],
     () => fetchProductDetail(productPath)
   );
 
-  // Khi có product, chọn mặc định option đầu tiên nếu có
-  React.useEffect(() => {
+  useEffect(() => {
     if (product && product.product_options && product.product_options.length > 0) {
       setSelectedOption(product.product_options[0]);
     }
   }, [product]);
+
+  // Lấy danh sách orderIds mà trong đó sản phẩm đã được mua
+  const { data: orderIds, isLoading: hasPurchasedLoading, error: hasPurchasedError } = useHasPurchased(product ? product.id : null);
+
+  // Lấy danh sách review cho sản phẩm
+  const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useProductReviews(product ? product.id : null);
 
   const handleScroll = (e) => {
     const offsetY = e.nativeEvent.contentOffset.y;
@@ -51,7 +56,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       clearTimeout(scrollTimeoutRef.current);
     }
     scrollTimeoutRef.current = setTimeout(() => {
-      setShowSticky(offsetY > stickyThreshold);
+      setShowSticky(offsetY > 400);
     }, 100);
   };
 
@@ -63,8 +68,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
     try {
       const body = {
-        product: product,
-        quantity: quantity,
+        product,
+        quantity,
         product_option: selectedOption || {}
       };
       const response = await fetch(`${BASE_URL}/api/v1/cart/add`, {
@@ -77,7 +82,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
       });
       if (response.ok) {
         Alert.alert('Đặt hàng', 'Sản phẩm đã được thêm vào giỏ hàng');
-        // Phát sự kiện để các Header ở mọi nơi cập nhật số lượng giỏ hàng mới
         emitter.emit('cartUpdated');
       } else {
         const data = await response.json();
@@ -89,24 +93,38 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || hasPurchasedLoading || reviewsLoading) {
     return <ActivityIndicator size="large" color="#000" style={styles.loader} />;
   }
   if (error || !product) {
-    return <Text style={styles.errorText}>Không tìm thấy sản phẩm</Text>;
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Không tìm thấy sản phẩm</Text>
+      </View>
+    );
+  }
+  if (hasPurchasedError) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{hasPurchasedError.message}</Text>
+      </View>
+    );
+  }
+  if (reviewsError) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{reviewsError.message}</Text>
+      </View>
+    );
   }
 
-  const detailText = product.detail || '';
-  const shouldTruncate = detailText.length > DETAIL_LIMIT;
-  const displayedDetail = showFullDetail || !shouldTruncate
-    ? detailText
-    : detailText.substring(0, DETAIL_LIMIT) + '...';
-  const effectivePrice = selectedOption && selectedOption.price
-    ? selectedOption.price
-    : product.price;
-  const totalPrice = (typeof effectivePrice === 'number'
-    ? effectivePrice * quantity
-    : parseFloat(effectivePrice) * quantity) || 0;
+  // Tính toán giá hiệu quả: ép kiểu số cho giá sản phẩm và tùy chọn
+  const effectivePrice = selectedOption ? Number(selectedOption.price) : Number(product.price);
+  const totalPrice = effectivePrice * quantity;
+
+  // Kiểm tra xem người dùng đã bình luận cho đơn hàng (orderIds[0]) hay chưa
+  // Giả sử mỗi review có thuộc tính orderId
+  const hasReviewed = reviews && reviews.some(review => review.orderId === orderIds[0]);
 
   return (
     <View style={styles.screenContainer}>
@@ -117,92 +135,35 @@ const ProductDetailScreen = ({ route, navigation }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <Image source={{ uri: product.image_url }} style={styles.productImage} />
-        <View style={styles.productInfo}>
-          <Text style={styles.productName}>{product.name}</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.productPrice}>
-              {typeof effectivePrice === 'number'
-                ? effectivePrice.toLocaleString('vi-VN')
-                : effectivePrice} đ
+        <ProductInfo 
+          product={product}
+          quantity={quantity}
+          setQuantity={setQuantity}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
+          onOrder={handleOrder}
+          showFullDetail={showFullDetail}
+          setShowFullDetail={setShowFullDetail}
+        />
+        {/* Nếu người dùng đã mua sản phẩm */}
+        {orderIds && orderIds.length > 0 ? (
+          <>
+            {hasReviewed ? (
+              <View style={styles.center}>
+                <Text style={styles.infoText}>Bạn đã đánh giá sản phẩm này.</Text>
+              </View>
+            ) : (
+              <CommentSection productId={product.id} orderId={orderIds[0]} />
+            )}
+            <ReviewsSection reviews={reviews} />
+          </>
+        ) : (
+          <View style={styles.center}>
+            <Text style={styles.infoText}>
+              Bạn chưa mua sản phẩm này, vì vậy không thể đánh giá.
             </Text>
           </View>
-          {product.product_options && product.product_options.length > 0 && (
-            <View style={styles.optionsSelectionContainer}>
-              <Text style={styles.optionsLabel}>Chọn tùy chọn:</Text>
-              <View style={styles.optionsContainer}>
-                {product.product_options.map((option) => (
-                  <TouchableOpacity 
-                    key={option.id} 
-                    style={[
-                      styles.optionButton, 
-                      selectedOption && selectedOption.id === option.id && styles.optionButtonSelected
-                    ]}
-                    onPress={() => setSelectedOption(option)}
-                  >
-                    <Text style={[
-                      styles.optionButtonText, 
-                      selectedOption && selectedOption.id === option.id && styles.optionButtonTextSelected
-                    ]}>
-                      {option.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-          <View style={styles.quantityRow}>
-            <Text style={styles.quantityLabel}>Chọn số lượng muốn đặt:</Text>
-            <View style={styles.quantityControls}>
-              <TouchableOpacity 
-                style={styles.quantityButton} 
-                onPress={() => setQuantity(prev => (prev > 1 ? prev - 1 : 1))}
-              >
-                <Ionicons name="remove-circle-outline" size={32} color="#ff5722" />
-              </TouchableOpacity>
-              <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity 
-                style={styles.quantityButton} 
-                onPress={() => setQuantity(prev => prev + 1)}
-              >
-                <Ionicons name="add-circle-outline" size={32} color="#ff5722" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.orderRowContainer}>
-            <View style={styles.totalPriceContainer}>
-              <Text style={styles.totalPriceLabel}>Tổng tiền:</Text>
-              <Text style={styles.totalPriceText}>{totalPrice.toLocaleString('vi-VN')} đ</Text>
-            </View>
-            <TouchableOpacity style={styles.oldButton} onPress={handleOrder}>
-              <Text style={styles.oldButtonText}>Thêm vào giỏ hàng</Text>
-            </TouchableOpacity>
-          </View>
-          <Markdown style={markdownStyles}>
-            {displayedDetail}
-          </Markdown>
-          {shouldTruncate && (
-            <TouchableOpacity onPress={() => setShowFullDetail(!showFullDetail)}>
-              <Text style={styles.showMoreText}>{showFullDetail ? 'Ẩn bớt' : 'Xem thêm'}</Text>
-            </TouchableOpacity>
-          )}
-          {product.product_options && product.product_options.length > 0 && (
-            <View style={styles.optionsContainerBottom}>
-              <Text style={styles.optionsTitle}>Bảng giá tùy chọn:</Text>
-              {product.product_options.map((option) => (
-                <View key={option.id} style={styles.optionItem}>
-                  <Text style={styles.optionName}>{option.name}</Text>
-                  <Text style={styles.optionPrice}>
-                    {typeof option.price === 'number'
-                      ? option.price.toLocaleString('vi-VN')
-                      : parseInt(option.price).toLocaleString('vi-VN')} đ
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-          <Text style={styles.stockText}>Còn hàng: {product.stock}</Text>
-        </View>
+        )}
       </ScrollView>
       {showSticky && (
         <View style={styles.stickyButtonContainer}>
@@ -219,190 +180,11 @@ const ProductDetailScreen = ({ route, navigation }) => {
   );
 };
 
-const markdownStyles = {
-  heading2: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  heading3: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 6,
-  },
-  body: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 22,
-  },
-};
-
 const styles = StyleSheet.create({
-  screenContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    marginTop: 0,
-  },
-  productImage: {
-    width: '100%',
-    height: 300,
-    resizeMode: 'cover',
-  },
-  productInfo: {
-    padding: 15,
-  },
-  productName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  productPrice: {
-    fontSize: 20,
-    color: '#e53935',
-    fontWeight: 'bold',
-  },
-  optionsSelectionContainer: {
-    marginVertical: 10,
-  },
-  optionsLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  optionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  optionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#ff5722',
-    borderRadius: 20,
-    marginRight: 10,
-    marginBottom: 10,
-  },
-  optionButtonSelected: {
-    backgroundColor: '#ff5722',
-  },
-  optionButtonText: {
-    fontSize: 16,
-    color: '#ff5722',
-  },
-  optionButtonTextSelected: {
-    color: '#fff',
-  },
-  quantityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  quantityLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  quantityButton: {
-    paddingHorizontal: 5,
-  },
-  quantityText: {
-    fontSize: 20,
-    marginHorizontal: 10,
-  },
-  orderRowContainer: {
-    marginVertical: 10,
-  },
-  totalPriceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  totalPriceLabel: {
-    fontSize: 16,
-    color: '#333',
-    marginRight: 5,
-  },
-  totalPriceText: {
-    fontSize: 16,
-    color: '#e53935',
-    fontWeight: 'bold',
-  },
-  oldButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#ff5722',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  oldButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  optionsContainerBottom: {
-    marginVertical: 10,
-    padding: 10,
-    backgroundColor: '#f7f7f7',
-    borderRadius: 10,
-  },
-  optionsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  optionName: {
-    fontSize: 16,
-    color: '#333',
-  },
-  optionPrice: {
-    fontSize: 16,
-    color: '#e53935',
-    fontWeight: 'bold',
-  },
-  stockText: {
-    fontSize: 16,
-    color: '#333',
-    marginVertical: 10,
-  },
-  showMoreText: {
-    color: '#007bff',
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: 'red',
-    marginTop: 20,
-  },
+  screenContainer: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
   stickyButtonContainer: {
     position: 'absolute',
     bottom: 0,
@@ -414,20 +196,15 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
-  stickyButton: {
-    backgroundColor: '#ff5722',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  stickyButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  totalPriceContainer: { flexDirection: 'row', alignItems: 'center' },
+  totalPriceLabel: { fontSize: 16, color: '#333', marginRight: 5 },
+  totalPriceText: { fontSize: 16, color: '#e53935', fontWeight: 'bold' },
+  stickyButton: { backgroundColor: '#ff5722', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 10, alignItems: 'center' },
+  stickyButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  infoText: { marginVertical: 20, textAlign: 'center', fontSize: 16, color: '#555' },
+  errorText: { fontSize: 18, color: 'red' }
 });
 
 export default ProductDetailScreen;
