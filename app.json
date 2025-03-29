@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "fe_app",
+    "slug": "fe_app",
+    "owner": "anbaer123",
+    "android": {
+      "package": "com.fe_app"
+    },
+    "ios": {
+      "jsEngine": "jsc"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c7480db7-70c9-4490-8535-43bd94287b52"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/c7480db7-70c9-4490-8535-43bd94287b52"
+    },
+    "packagerOpts": {
+      "port": 3001
+    }
+  }
+}
