@@ -60,13 +60,6 @@ const OrderHistory = ({navigation}) => {
             {orderItem?.product?.name || "Không có tên"}
           </Text>
   
-          {/* Hiển thị tùy chọn nếu có */}
-          {orderItem.product_option && (
-            <Text style={styles.productOption}>
-              Tùy chọn: {orderItem.product_option.name}
-            </Text>
-          )}
-  
           <Text style={styles.productQuantity}>Số lượng: {orderItem.quantity}</Text>
   
           {/* Hiển thị giá sản phẩm đã nhân với số lượng */}
