@@ -8,12 +8,15 @@ import SlideShow from './SlideShow';
 import CategoryList from './CategoryList';
 import BestSellers from './BestSellers';
 import CategorySection from './CategorySection';
+import ViewedProducts from './ViewedProducts';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HomePage = () => {
   const navigation = useNavigation();
   const [categories, setCategories] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewedProducts, setViewedProducts] = useState([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -36,8 +39,26 @@ const HomePage = () => {
       }
     };
 
+    const fetchViewedProducts = async () => {
+      try {
+        const storedProducts = await AsyncStorage.getItem('viewedProducts');
+        if (storedProducts) {
+          const products = JSON.parse(storedProducts);
+          if (Array.isArray(products)) {
+            const validProducts = products.filter(item => item && item.id);
+            setViewedProducts(validProducts);
+          } else {
+            console.error("Dữ liệu không hợp lệ trong AsyncStorage:", storedProducts);
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy sản phẩm đã xem:", error);
+      }
+    };
+    
     fetchCategories();
     fetchBestSellers();
+    fetchViewedProducts();
   }, []);
 
   return (
@@ -54,6 +75,7 @@ const HomePage = () => {
             <SlideShow />
             <CategoryList categories={categories} />
             <BestSellers bestSellers={bestSellers} loading={loading} />
+            <ViewedProducts viewedProducts={viewedProducts} loading={loading} />
           </>
         )}
         contentContainerStyle={styles.flatListContainer}

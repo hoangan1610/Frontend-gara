@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, StyleSheet 
+  View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, StyleSheet, FlatList, Image
 } from 'react-native';
 import axios from 'axios';
 import { useQuery } from 'react-query';
@@ -13,6 +13,7 @@ import CommentSection from './CommentSection';
 import ReviewsSection from './ReviewsSection';
 import { useHasPurchased } from '../../hooks/useHasPurchased';
 import { useProductReviews } from '../../hooks/useProductReviews';
+import { FontAwesome } from '@expo/vector-icons';
 
 axios.defaults.timeout = 10000;
 
@@ -30,6 +31,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [similarProducts, setSimilarProducts] = useState([]);
   const scrollTimeoutRef = useRef(null);
 
   // Lấy chi tiết sản phẩm
@@ -49,6 +52,157 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   // Lấy danh sách review cho sản phẩm
   const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useProductReviews(product ? product.id : null);
+
+  useEffect(() => {
+
+    //Hàm kiểm tra trạng thái theo dõi
+    const checkFollowStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        const response = await fetch(`${BASE_URL}/api/v1/follow`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        if (data && Array.isArray(data.products)) {
+          setIsFavorite(data.products.some(item => item.product_id === product.id));
+        } else {
+          console.error("Dữ liệu không hợp lệ:", data);
+          setIsFavorite(false); // Mặc định là chưa follow nếu dữ liệu sai
+        }
+      } catch (error) {
+        console.error("Lỗi khi kiểm tra trạng thái follow:", error);
+        setIsFavorite(false); // Đặt mặc định nếu lỗi xảy ra
+      }
+    };
+
+    // Hàm hiển thị danh sách sản phẩm tương tự
+    const fetchSimilarProductsList = async () => {
+      if (product && product.id) {
+        try {
+          const similarProducts = await fetchSimilarProducts(product.id);
+          setSimilarProducts(similarProducts);
+        } catch (error) {
+          console.error("Không thể lấy sản phẩm tương tự:", error);
+        }
+      }
+    };
+
+    // Hàm lưu sản phẩm để hiển thị sản phẩm đã xem
+    const saveViewedProduct = async (product) => {
+      console.log(product)
+      console.log("product.id:", product?.id);
+      if (!product || !product.id) {
+        console.error("Sản phẩm không hợp lệ:", product);
+        return;
+      }
+    
+      try {
+        // Lấy danh sách sản phẩm đã xem từ AsyncStorage
+        const storedProducts = await AsyncStorage.getItem('viewedProducts');
+        let viewedProducts = storedProducts ? JSON.parse(storedProducts) : [];
+    
+        // Kiểm tra nếu sản phẩm đã tồn tại, thì không thêm lại
+        const exists = viewedProducts.some((item) => item.id === product.id);
+        if (!exists) {
+          viewedProducts = [product, ...viewedProducts].slice(0, 10);
+          await AsyncStorage.setItem('viewedProducts', JSON.stringify(viewedProducts));
+        }
+      } catch (error) {
+        console.error("Lỗi khi lưu sản phẩm đã xem:", error);
+      }
+    };    
+
+    if (product) {
+      checkFollowStatus();
+      fetchSimilarProductsList();
+      saveViewedProduct(product);
+    }
+  }, [product]);
+
+  const toggleFollow = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        Alert.alert("Thông báo", "Bạn cần đăng nhập để theo dõi sản phẩm");
+        return;
+      }
+  
+      const status = isFavorite ? `${BASE_URL}/api/v1/follow/unfollow` : `${BASE_URL}/api/v1/follow/follow`;
+      const response = await fetch(status, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ product: { id: product.id } }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        setIsFavorite(!isFavorite);
+        const message = isFavorite
+          ? "Bạn đã bỏ yêu thích sản phẩm"
+          : "Thêm sản phẩm vào mục yêu thích thành công";
+        Alert.alert("Thông báo", message);
+  
+        // Lưu thông tin sản phẩm đã follow vào AsyncStorage
+        let followedProducts = await AsyncStorage.getItem("followedProducts");
+        followedProducts = followedProducts ? JSON.parse(followedProducts) : [];
+  
+        if (isFavorite) {
+          // Nếu bỏ follow, xóa sản phẩm khỏi danh sách
+          followedProducts = followedProducts.filter(item => item.id !== product.id);
+        } else {
+          // Nếu follow, thêm sản phẩm vào danh sách
+          followedProducts.push({ 
+            id: product.id,
+            name: product.name,
+            image: product.image_url || "https://via.placeholder.com/150",
+            path: product.path, });
+        }
+        await AsyncStorage.setItem("followedProducts", JSON.stringify(followedProducts));
+        navigation.navigate("ProductDetail", { productPath: product.path });
+  
+      } else {
+        Alert.alert("Lỗi", data.message || "Có lỗi xảy ra");
+      }
+    } catch (error) {
+      console.error("Lỗi khi follow/unfollow sản phẩm:", error);
+      Alert.alert("Lỗi", "Có lỗi xảy ra khi follow/unfollow");
+    }
+  };  
+
+  //Hàm lấy sản phẩm tương tự theo danh mục
+  const fetchSimilarProducts = async (product_id) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/product/similar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ product_id }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.data || []; 
+      } else {
+        const data = await response.json();
+        throw new Error(data.message || "Có lỗi xảy ra khi lấy sản phẩm tương tự");
+      }
+    } catch (error) {
+      console.error("Lỗi khi gọi API lấy sản phẩm tương tự:", error);
+      throw error;
+    }
+  };
+  
+  // Lấy số lượng đơn hàng đã mua theo orderIds
+  const purchasedCount = orderIds ? orderIds.length : 0;
+  // Lấy số lượng bình luận của sản phẩm theo reviews
+  const reviewCount = reviews ? reviews.length : 0;
 
   const handleScroll = (e) => {
     const offsetY = e.nativeEvent.contentOffset.y;
@@ -145,6 +299,18 @@ const ProductDetailScreen = ({ route, navigation }) => {
           showFullDetail={showFullDetail}
           setShowFullDetail={setShowFullDetail}
         />
+
+        {/* Nút Follow */}
+        <TouchableOpacity onPress={toggleFollow} style={styles.followButton}>
+          <FontAwesome name={isFavorite ? "heart" : "heart-o"} size={24} color={isFavorite ? "red" : "orange"} />
+          <Text style={styles.followText}>{isFavorite ? "Bỏ theo dõi" : "Theo dõi"}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.statisticsContainer}>
+          <Text style={styles.statisticsText}>Số khách đã mua: {purchasedCount}</Text>
+          <Text style={styles.statisticsText}>Số khách đã bình luận: {reviewCount}</Text>
+        </View>
+
         {/* Nếu người dùng đã mua sản phẩm */}
         {orderIds && orderIds.length > 0 ? (
           <>
@@ -164,6 +330,28 @@ const ProductDetailScreen = ({ route, navigation }) => {
             </Text>
           </View>
         )}
+
+        <Text style={styles.sectionTitle}>Sản phẩm tương tự</Text>
+        {similarProducts.length > 0 ? (
+          <FlatList
+            data={similarProducts}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => navigation.navigate('ProductDetail', { productPath: item.path })} >
+              <View style={styles.productContainer}>
+                <Image source={{ uri: item.image_url }} style={styles.productImage} />
+                <Text style={styles.productName}>{item.name}</Text>
+              </View>
+              </TouchableOpacity>
+            )}
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.productList}
+          />
+        ) : (
+          <Text style={styles.noProductText}>Không có sản phẩm tương tự</Text>
+        )}
+
       </ScrollView>
       {showSticky && (
         <View style={styles.stickyButtonContainer}>
@@ -204,7 +392,17 @@ const styles = StyleSheet.create({
   stickyButton: { backgroundColor: '#ff5722', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 10, alignItems: 'center' },
   stickyButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   infoText: { marginVertical: 20, textAlign: 'center', fontSize: 16, color: '#555' },
-  errorText: { fontSize: 18, color: 'red' }
+  errorText: { fontSize: 18, color: 'red' },
+  followButton: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 5, backgroundColor: 'transparent',  borderWidth: 2, borderColor: '#FFA500', alignSelf: 'center', marginVertical: 10, },
+  followText: { marginLeft: 5, fontSize: 16, color: '#FFA500', },
+  statisticsContainer: { marginVertical: 10, padding: 10, borderRadius: 5, marginHorizontal: 10, },
+  statisticsText: { fontSize: 16, fontWeight: "bold", color: "#333", },
+  productList: {paddingVertical: 10, },
+  productContainer: { marginHorizontal: 10, alignItems: 'center', justifyContent: 'center', width: 120, },
+  productImage: { width: 120, height: 120, borderRadius: 10, marginBottom: 5, },
+  productName: { fontSize: 14, textAlign: 'center', width: 120, color: '#333', fontWeight: 'bold', },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginVertical: 10, textAlign: "center", },
+  noProductText: { fontSize: 16, color: "gray", textAlign: "center", marginVertical: 10, },
 });
 
 export default ProductDetailScreen;
