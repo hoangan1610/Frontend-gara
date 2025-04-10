@@ -90,29 +90,32 @@ const ProductDetailScreen = ({ route, navigation }) => {
     };
 
     // Hàm lưu sản phẩm để hiển thị sản phẩm đã xem
-    const saveViewedProduct = async (product) => {
-      console.log(product)
-      console.log("product.id:", product?.id);
-      if (!product || !product.id) {
-        console.error("Sản phẩm không hợp lệ:", product);
-        return;
-      }
-    
+    const saveViewedProduct = async () => {
+      if (!product?.id) return;
+  
       try {
-        // Lấy danh sách sản phẩm đã xem từ AsyncStorage
-        const storedProducts = await AsyncStorage.getItem('viewedProducts');
-        let viewedProducts = storedProducts ? JSON.parse(storedProducts) : [];
-    
-        // Kiểm tra nếu sản phẩm đã tồn tại, thì không thêm lại
-        const exists = viewedProducts.some((item) => item.id === product.id);
-        if (!exists) {
-          viewedProducts = [product, ...viewedProducts].slice(0, 10);
-          await AsyncStorage.setItem('viewedProducts', JSON.stringify(viewedProducts));
-        }
-      } catch (error) {
-        console.error("Lỗi khi lưu sản phẩm đã xem:", error);
+        const stored = await AsyncStorage.getItem("viewedProducts");
+        let viewed = stored ? JSON.parse(stored) : [];
+  
+        // Loại bỏ sản phẩm nếu đã tồn tại (sẽ thêm lại ở đầu)
+        viewed = viewed.filter(item => item.id !== product.id);
+  
+        // Tạo bản ghi sản phẩm đơn giản
+        const newProduct = {
+          id: product.id,
+          name: product.name,
+          image: product.image_url || "https://via.placeholder.com/150",
+          path: product.path,
+        };
+  
+        // Thêm sản phẩm mới vào đầu danh sách và giới hạn 10
+        viewed = [newProduct, ...viewed].slice(0, 10);
+  
+        await AsyncStorage.setItem("viewedProducts", JSON.stringify(viewed));
+      } catch (err) {
+        console.error("Lỗi khi lưu sản phẩm đã xem:", err);
       }
-    };    
+    };  
 
     if (product) {
       checkFollowStatus();

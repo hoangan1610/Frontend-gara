@@ -8,7 +8,8 @@ const OrderDetail = ({ route, navigation }) => {
   const { orderId } = route.params;
   const [orderDetail, setOrderDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const [isCancelled, setIsCancelled] = useState(false);
+  
   useEffect(() => {
     if (orderId) {
       fetchOrderDetail(orderId);
@@ -51,30 +52,74 @@ const OrderDetail = ({ route, navigation }) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        console.log('Token không tồn tại, cần đăng nhập');
+        Alert.alert("Vui lòng đăng nhập để tiếp tục");
         return;
       }
-      const response = await fetch(`${BASE_URL}/api/v1/order/${orderId}/cancel`, {
-        method: 'PUT',
+  
+      const orderResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ reason: "Hủy trong vòng 30 phút" }),
       });
-      const data = await response.json();
-      if (response.ok) {
+  
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        console.error('Không thể lấy thông tin đơn hàng:', errorData.message);
+        Alert.alert("Không thể lấy thông tin đơn hàng");
+        return;
+      }
+  
+      const orderData = await orderResponse.json();
+  
+      if (!orderData || !orderData.createdAt) {
+        console.error("Dữ liệu đơn hàng không hợp lệ:", orderData);
+        Alert.alert("Dữ liệu đơn hàng không hợp lệ");
+        return;
+      }
+  
+      if (!isCancelable(orderData.createdAt)) {
+        Alert.alert("Không thể hủy đơn hàng sau 30 phút kể từ khi tạo");
+        return;
+      }
+
+      const cancelResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+  
+      const cancelData = await cancelResponse.json();
+  
+      if (cancelResponse.ok) {
         Alert.alert("Đơn hàng đã được hủy thành công");
         await fetchOrderDetail(orderId);
-        console.log("Trạng thái đơn hàng sau khi fetch lại:", orderDetail?.status);
       } else {
-        console.error('Lỗi từ server:', data.message);
+        console.error('Lỗi từ server:', cancelData.message);
+        Alert.alert("Hủy đơn hàng thất bại:", cancelData.message);
       }
+  
     } catch (error) {
       console.error('Lỗi khi hủy đơn hàng:', error);
+      Alert.alert("Đã xảy ra lỗi khi hủy đơn hàng");
     }
   };
   
+  //Hàm kiểm tra thời gian có thể hủy trực tiếp trong vòng 30 phút
+  const isCancelable = (createdAt) => {
+    if (!createdAt) {
+        console.error("Ngày tạo đơn hàng không hợp lệ");
+        return false;
+    }
+
+    const orderTime = new Date(createdAt);
+    const currentTime = new Date();
+    const timeDifferenceInMinutes = (currentTime - orderTime) / 60000;
+
+    return timeDifferenceInMinutes <= 30; 
+  };
+
   const confirmCancelOrder = () => {
     Alert.alert(
       "Xác nhận hủy đơn hàng",

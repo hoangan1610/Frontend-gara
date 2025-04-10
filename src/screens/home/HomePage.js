@@ -41,18 +41,13 @@ const HomePage = () => {
 
     const fetchViewedProducts = async () => {
       try {
-        const storedProducts = await AsyncStorage.getItem('viewedProducts');
-        if (storedProducts) {
-          const products = JSON.parse(storedProducts);
-          if (Array.isArray(products)) {
-            const validProducts = products.filter(item => item && item.id);
-            setViewedProducts(validProducts);
-          } else {
-            console.error("Dữ liệu không hợp lệ trong AsyncStorage:", storedProducts);
-          }
+        const stored = await AsyncStorage.getItem('viewedProducts');
+        const products = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(products)) {
+          setViewedProducts(products.filter(p => p && p.id));
         }
       } catch (error) {
-        console.error("Lỗi khi lấy sản phẩm đã xem:", error);
+        console.error('Lỗi khi lấy sản phẩm đã xem:', error);
       }
     };
     
