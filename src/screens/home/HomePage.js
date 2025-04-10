@@ -8,8 +8,6 @@ import SlideShow from './SlideShow';
 import CategoryList from './CategoryList';
 import BestSellers from './BestSellers';
 import CategorySection from './CategorySection';
-import ViewedProducts from './ViewedProducts';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HomePage = () => {
   const navigation = useNavigation();
@@ -17,7 +15,6 @@ const HomePage = () => {
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewedProducts, setViewedProducts] = useState([]);
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -70,7 +67,6 @@ const HomePage = () => {
             <SlideShow />
             <CategoryList categories={categories} />
             <BestSellers bestSellers={bestSellers} loading={loading} />
-            <ViewedProducts viewedProducts={viewedProducts} loading={loading} />
           </>
         )}
         contentContainerStyle={styles.flatListContainer}

@@ -406,6 +406,7 @@ const styles = StyleSheet.create({
   productName: { fontSize: 14, textAlign: 'center', width: 120, color: '#333', fontWeight: 'bold', },
   sectionTitle: { fontSize: 18, fontWeight: "bold", marginVertical: 10, textAlign: "center", },
   noProductText: { fontSize: 16, color: "gray", textAlign: "center", marginVertical: 10, },
+  errorText: { fontSize: 18, color: 'red' }
 });
 
 export default ProductDetailScreen;
