@@ -79,6 +79,18 @@ const ProfileScreen = ({ navigation }) => {
       >
         <Text style={styles.buttonText}>Chỉnh sửa thông tin</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={() => navigation.navigate('OrderHistory')}>
+        <Text style={styles.buttonText}>Lịch sử mua hàng</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={() => navigation.navigate('ProductFollow')}>
+        <Text style={styles.buttonText}>Sản phẩm yêu thích</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };

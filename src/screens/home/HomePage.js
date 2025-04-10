@@ -14,7 +14,7 @@ const HomePage = () => {
   const [categories, setCategories] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [viewedProducts, setViewedProducts] = useState([]);
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -36,8 +36,21 @@ const HomePage = () => {
       }
     };
 
+    const fetchViewedProducts = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('viewedProducts');
+        const products = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(products)) {
+          setViewedProducts(products.filter(p => p && p.id));
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy sản phẩm đã xem:', error);
+      }
+    };
+    
     fetchCategories();
     fetchBestSellers();
+    fetchViewedProducts();
   }, []);
 
   return (
