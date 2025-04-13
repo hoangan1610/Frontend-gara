@@ -14,15 +14,27 @@ import ReviewsSection from './ReviewsSection';
 import { useHasPurchased } from '../../hooks/useHasPurchased';
 import { useProductReviews } from '../../hooks/useProductReviews';
 import { FontAwesome } from '@expo/vector-icons';
+import { addToRecentlyViewed } from '../../utils/recentlyViewed';
 
 axios.defaults.timeout = 10000;
 
 const fetchProductDetail = async (productPath) => {
-  const response = await axios.get(`${BASE_URL}/api/v1/product/detail/${productPath}`);
-  if (response.status !== 200) {
-    throw new Error('Không thể tải chi tiết sản phẩm');
+  try {
+    const response = await axios.get(`${BASE_URL}/api/v1/product/detail/${productPath}`);
+  
+    if (response.status !== 200) {
+      throw new Error('Không thể tải chi tiết sản phẩm');
+    }
+    const product = response.data.product;
+    if (!product) {
+      throw new Error('Dữ liệu sản phẩm không hợp lệ');
+    }
+    
+    return product;
+  } catch (error) {
+    console.error('Lỗi khi lấy chi tiết sản phẩm:', error.message);
+    throw new Error('Có lỗi xảy ra khi lấy chi tiết sản phẩm');
   }
-  return response.data.product;
 };
 
 const ProductDetailScreen = ({ route, navigation }) => {
@@ -38,7 +50,11 @@ const ProductDetailScreen = ({ route, navigation }) => {
   // Lấy chi tiết sản phẩm
   const { data: product, isLoading, error } = useQuery(
     ['productDetail', productPath],
-    () => fetchProductDetail(productPath)
+    () => fetchProductDetail(productPath),
+    {
+      retry: false,
+      staleTime: 1000 * 60 * 5, // cache 5 phút
+    }
   );
 
   useEffect(() => {
@@ -48,10 +64,12 @@ const ProductDetailScreen = ({ route, navigation }) => {
   }, [product]);
 
   // Lấy danh sách orderIds mà trong đó sản phẩm đã được mua
-  const { data: orderIds, isLoading: hasPurchasedLoading, error: hasPurchasedError } = useHasPurchased(product ? product.id : null);
+  const { data: orderIds, isLoading: hasPurchasedLoading, error: hasPurchasedError } =
+  useHasPurchased(product?.id, { enabled: !!product });
 
   // Lấy danh sách review cho sản phẩm
-  const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useProductReviews(product ? product.id : null);
+  const { data: reviews, isLoading: reviewsLoading, error: reviewsError } =
+  useProductReviews(product?.id, { enabled: !!product });
 
   useEffect(() => {
 
@@ -64,6 +82,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
             "Authorization": `Bearer ${token}`,
           },
         });
+        if (!response.ok) {
+          throw new Error(`Lỗi API: ${response.status}`);
+        }
         const data = await response.json();
         if (data && Array.isArray(data.products)) {
           setIsFavorite(data.products.some(item => item.product_id === product.id));
@@ -87,40 +108,17 @@ const ProductDetailScreen = ({ route, navigation }) => {
           console.error("Không thể lấy sản phẩm tương tự:", error);
         }
       }
-    };
+    }; 
 
-    // Hàm lưu sản phẩm để hiển thị sản phẩm đã xem
-    const saveViewedProduct = async () => {
-      if (!product?.id) return;
-  
-      try {
-        const stored = await AsyncStorage.getItem("viewedProducts");
-        let viewed = stored ? JSON.parse(stored) : [];
-  
-        // Loại bỏ sản phẩm nếu đã tồn tại (sẽ thêm lại ở đầu)
-        viewed = viewed.filter(item => item.id !== product.id);
-  
-        // Tạo bản ghi sản phẩm đơn giản
-        const newProduct = {
-          id: product.id,
-          name: product.name,
-          image: product.image_url || "https://via.placeholder.com/150",
-          path: product.path,
-        };
-  
-        // Thêm sản phẩm mới vào đầu danh sách và giới hạn 10
-        viewed = [newProduct, ...viewed].slice(0, 10);
-  
-        await AsyncStorage.setItem("viewedProducts", JSON.stringify(viewed));
-      } catch (err) {
-        console.error("Lỗi khi lưu sản phẩm đã xem:", err);
-      }
-    };  
-
-    if (product) {
+    if (product && product.id) {
       checkFollowStatus();
       fetchSimilarProductsList();
-      saveViewedProduct(product);
+    }
+  }, [product]);
+
+  useEffect(() => {
+    if (product && typeof product === 'object' && product.id && product.name && product.path) {
+      addToRecentlyViewed(product); // Lưu sản phẩm đã xem vào AsyncStorage
     }
   }, [product]);
 
@@ -141,7 +139,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
         },
         body: JSON.stringify({ product: { id: product.id } }),
       });
-  
       const data = await response.json();
   
       if (response.ok) {
@@ -167,7 +164,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
             path: product.path, });
         }
         await AsyncStorage.setItem("followedProducts", JSON.stringify(followedProducts));
-        navigation.navigate("ProductDetail", { productPath: product.path });
+        //navigation.navigate("ProductDetail", { productPath: product.path });
   
       } else {
         Alert.alert("Lỗi", data.message || "Có lỗi xảy ra");
@@ -281,7 +278,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   // Kiểm tra xem người dùng đã bình luận cho đơn hàng (orderIds[0]) hay chưa
   // Giả sử mỗi review có thuộc tính orderId
-  const hasReviewed = reviews && reviews.some(review => review.orderId === orderIds[0]);
+  const hasReviewed = reviews?.some(review => review.orderId === orderIds?.[0]) ?? false;
 
   return (
     <View style={styles.screenContainer}>

@@ -91,6 +91,13 @@ const ProfileScreen = ({ navigation }) => {
         onPress={() => navigation.navigate('ProductFollow')}>
         <Text style={styles.buttonText}>Sản phẩm yêu thích</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={() => navigation.navigate('StatisticalPage')}>
+        <Text style={styles.buttonText}>Thống kê</Text>
+      </TouchableOpacity>
+
     </ScrollView>
   );
 };
