@@ -1,14 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, ActivityIndicator, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, Image, ActivityIndicator, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { BASE_URL } from '../../constants/config';
+import { Picker } from '@react-native-picker/picker';
 
 const OrderDetail = ({ route, navigation }) => {
   const { orderId } = route.params;
   const [orderDetail, setOrderDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isCancelled, setIsCancelled] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const cancelReasons = [
+    "Không nhận được kiện hàng",
+    "Không còn nhu cầu",
+    "Sản phẩm không khớp với mô tả",
+    "Kiện hàng hoặc sản phẩm bị hư hỏng",
+    "Sản phẩm bị lỗi hoặc không hoạt động",
+    "Gửi sai sản phẩm"
+  ];
   
   useEffect(() => {
     if (orderId) {
@@ -78,6 +89,11 @@ const OrderDetail = ({ route, navigation }) => {
         return;
       }
   
+      if (orderData.status === 'CANCELLED') {
+        Alert.alert("Thông báo", "Đơn hàng đã được hủy trước đó.");
+        return;
+      }
+      
       if (!isCancelable(orderData.createdAt)) {
         Alert.alert("Không thể hủy đơn hàng sau 30 phút kể từ khi tạo");
         return;
@@ -106,6 +122,77 @@ const OrderDetail = ({ route, navigation }) => {
     }
   };
   
+  const handleSendCancelRequest = async () => {
+    if (!selectedReason) {
+      Alert.alert('Vui lòng chọn lý do hủy đơn hàng.');
+      return;
+    }
+  
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        Alert.alert('Không tìm thấy token người dùng.');
+        return;
+      }
+  
+      const orderResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+  
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        console.error('Không thể lấy thông tin đơn hàng:', errorData.message);
+        Alert.alert("Không thể lấy thông tin đơn hàng");
+        return;
+      }
+  
+      const orderData = await orderResponse.json();
+  
+      if (!orderData || !orderData.createdAt) {
+        console.error("Dữ liệu đơn hàng không hợp lệ:", orderData);
+        Alert.alert("Dữ liệu đơn hàng không hợp lệ");
+        return;
+      }
+  
+      if (orderData.status === 'CANCELLED') {
+        Alert.alert("Thông báo", "Đơn hàng đã được hủy trước đó.");
+        return;
+      }
+
+      if (isCancelable(orderData.createdAt)) {
+        Alert.alert('Đơn hàng có thể hủy trực tiếp trong vòng 30 phút, không cần gửi yêu cầu.');
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/v1/order/${orderId}/request-cancel`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId: orderId,
+          reason: selectedReason
+        })
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        Alert.alert('Thành công', data.message);
+        setModalVisible(false);
+      } else {
+        Alert.alert('Thất bại', data.message || 'Đã xảy ra lỗi.');
+      }
+    } catch (error) {
+      console.error('Lỗi gửi yêu cầu hủy:', error);
+      Alert.alert('Lỗi', 'Không thể gửi yêu cầu hủy đơn hàng.');
+    }
+  };
+
   //Hàm kiểm tra thời gian có thể hủy trực tiếp trong vòng 30 phút
   const isCancelable = (createdAt) => {
     if (!createdAt) {
@@ -195,6 +282,47 @@ const OrderDetail = ({ route, navigation }) => {
           <TouchableOpacity style={styles.cancelButton} onPress={confirmCancelOrder}>
             <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
           </TouchableOpacity>
+
+          {/* Nút gửi yêu cầu hủy đơn hàng */}
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={() => setModalVisible(true)}>
+            <Text style={styles.cancelButtonText}>Gửi yêu cầu hủy đơn hàng</Text>
+          </TouchableOpacity>
+
+          {/* Modal chọn lý do hủy đơn hàng */}
+          <Modal
+            visible={modalVisible}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Chọn lý do hủy đơn hàng</Text>
+                <Picker
+                  selectedValue={selectedReason}
+                  onValueChange={(itemValue) => setSelectedReason(itemValue)}
+                >
+                  {cancelReasons.map((reason, index) => (
+                    <Picker.Item key={index} label={reason} value={reason} />
+                  ))}
+                </Picker>
+                <TouchableOpacity 
+                  style={styles.submitButton}
+                  onPress={handleSendCancelRequest}
+                >
+                  <Text style={styles.submitButtonText}>Gửi yêu cầu hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </View>
       ) : (
         <Text style={styles.errorText}>Không tìm thấy đơn hàng</Text>
@@ -223,6 +351,12 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 16, color: 'red', textAlign: 'center', marginTop: 20 },
   cancelButtonText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
   cancelButton: { padding: 12, borderRadius: 20, alignItems: 'center', marginTop: 20, backgroundColor: '#1e90ff', width: '70%', alignSelf: 'center' },
+  errorText: { fontSize: 16, color: 'red', textAlign: 'center', marginTop: 20 },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: { width: '80%', backgroundColor: 'white', padding: 20, borderRadius: 10 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  submitButton: { padding: 10, backgroundColor: '#1e90ff', borderRadius: 20, marginTop: 10, width: '100%', alignItems: 'center' },
+  submitButtonText: { color: 'white', fontSize: 16, textAlign: 'center' }
 });
 
 export default OrderDetail;

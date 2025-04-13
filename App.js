@@ -25,6 +25,7 @@ import CheckoutScreen from './src/screens/product/CheckoutScreen';
 import OrderHistory from './src/screens/profile/OrderHistory';
 import OrderDetail from './src/screens/profile/OrderDetail';
 import ProductFollowScreen from './src/screens/profile/ProductFollowScreen';
+import StatisticalPage from './src/screens/profile/StatisticalPage';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -85,6 +86,7 @@ const App = () => {
           <Stack.Screen name="OrderHistory" component={OrderHistory} options={{ headerShown: false }} />
           <Stack.Screen name="OrderDetail" component={OrderDetail} options={{ headerShown: false }} />
           <Stack.Screen name="ProductFollow" component={ProductFollowScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="StatisticalPage" component={StatisticalPage} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </QueryClientProvider>
