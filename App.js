@@ -26,6 +26,7 @@ import OrderHistory from './src/screens/profile/OrderHistory';
 import OrderDetail from './src/screens/profile/OrderDetail';
 import ProductFollowScreen from './src/screens/profile/ProductFollowScreen';
 import StatisticalPage from './src/screens/profile/StatisticalPage';
+import NotificationScreen from './src/screens/Notification/NotificationScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -87,6 +88,7 @@ const App = () => {
           <Stack.Screen name="OrderDetail" component={OrderDetail} options={{ headerShown: false }} />
           <Stack.Screen name="ProductFollow" component={ProductFollowScreen} options={{ headerShown: false }} />
           <Stack.Screen name="StatisticalPage" component={StatisticalPage} options={{ headerShown: false }} />
+          <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </QueryClientProvider>
