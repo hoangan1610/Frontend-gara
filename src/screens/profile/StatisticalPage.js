@@ -12,6 +12,11 @@ const StatisticalPage = ({ navigation}) => {
   const [selectedStatus, setSelectedStatus] = useState("FINISHED"); // Mặc định chọn trạng thái "FINISHED"
   const [cashflowData, setCashflowData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalAmount, setTotalAmount] = useState({
+    PENDING: 0,
+    DELIVERING: 0,
+    FINISHED: 0,
+  });
 
   // Hàm gọi API để lấy dữ liệu thống kê dòng tiền
   const fetchCashflowData = async () => {
@@ -35,46 +40,63 @@ const StatisticalPage = ({ navigation}) => {
       const resData = await response.json();
   
       if (resData && Array.isArray(resData.data)) {
-        setCashflowData(resData.data.map(item => ({
+        const formattedData = resData.data.map((item) => ({
           month: item.month,
-          value: parseFloat(item[selectedStatus]) || 0,
-        })));
+          PENDING: parseFloat(item.PENDING) || 0,
+          DELIVERING: parseFloat(item.DELIVERING) || 0,
+          FINISHED: parseFloat(item.FINISHED) || 0,
+        }));
+  
+        setCashflowData(formattedData);
+  
+        // Tính tổng cho từng trạng thái
+        const totalPending = formattedData.reduce((sum, item) => sum + item.PENDING, 0);
+        const totalDelivering = formattedData.reduce((sum, item) => sum + item.DELIVERING, 0);
+        const totalFinished = formattedData.reduce((sum, item) => sum + item.FINISHED, 0);
+  
+        setTotalAmount({
+          PENDING: totalPending,
+          DELIVERING: totalDelivering,
+          FINISHED: totalFinished,
+        });
       } else {
         console.error('Dữ liệu không hợp lệ:', resData);
         setCashflowData([]);
+        setTotalAmount({ PENDING: 0, DELIVERING: 0, FINISHED: 0 });
       }
     } catch (err) {
       console.error('Lỗi khi lấy dữ liệu dòng tiền:', err);
       Alert.alert('Lỗi', 'Không thể lấy dữ liệu thống kê');
       setCashflowData([]);
+      setTotalAmount({ PENDING: 0, DELIVERING: 0, FINISHED: 0 });
     } finally {
       setLoading(false);
     }
-  };
+  };  
   
   useEffect(() => {
     fetchCashflowData();
   }, [selectedStatus]);
 
   const chartData = {
-    labels: cashflowData.map(item => `T${item.month}`), // Tháng từ 1 -> 12
+    labels: cashflowData.map(item => `T${item.month}`),
     datasets: [
       {
-        data: cashflowData.map(item => item.value), // Tổng số tiền cho từng trạng thái
+        data: cashflowData.map(item => item[selectedStatus]), // lấy đúng theo trạng thái đang chọn
       },
     ],
   };
 
   return (
     <View style={styles.container}>
-
+  
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Biểu đồ dòng tiền</Text>
       </View>
-
+  
       {/* Dropdown để chọn trạng thái đơn hàng */}
       <RNPickerSelect
         onValueChange={value => setSelectedStatus(value)}
@@ -87,43 +109,67 @@ const StatisticalPage = ({ navigation}) => {
         style={pickerSelectStyles}
         placeholder={{}}
       />
-
+  
       {/* Nếu đang tải dữ liệu thì hiển thị loading spinner */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : (
-        <ScrollView horizontal>
-          {/* Biểu đồ cột */}
-          <BarChart
-            data={chartData}
-            width={Math.max(screenWidth, cashflowData.length * 60)} // Mỗi tháng rộng 60px
-            height={280}
-            yAxisLabel="₫"
-            chartConfig={{
-              backgroundGradientFrom: "#fff",
-              backgroundGradientTo: "#fff",
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: {
+        <View>
+          <ScrollView horizontal>
+            {/* Biểu đồ cột */}
+            <BarChart
+              data={chartData}
+              width={Math.max(screenWidth, cashflowData.length * 60)} // Mỗi tháng rộng 60px
+              height={280}
+              yAxisLabel="₫"
+              chartConfig={{
+                backgroundGradientFrom: "#fff",
+                backgroundGradientTo: "#fff",
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: {
+                  borderRadius: 8,
+                },
+              }}
+              style={{
+                marginVertical: 8,
                 borderRadius: 8,
-              },
-            }}
-            style={{
-              marginVertical: 8,
-              borderRadius: 8,
-            }}
-          />
-        </ScrollView>
+              }}
+            />
+          </ScrollView>
+  
+          {/* Hiển thị tổng số tiền bên dưới biểu đồ */}
+
+          <View style={{ marginTop: 10 }}>
+            <Text style={styles.totalText}>Tổng số tiền theo trạng thái:</Text>
+            <Text style={styles.textStatus}>Chờ xác nhận (PENDING): {totalAmount.PENDING.toLocaleString()} ₫</Text>
+            <Text style={styles.textStatus}>Đang giao (DELIVERING): {totalAmount.DELIVERING.toLocaleString()} ₫</Text>
+            <Text style={styles.textStatus}>Đã giao (FINISHED): {totalAmount.FINISHED.toLocaleString()} ₫</Text>
+          </View>
+        </View>
       )}
     </View>
-  );
+  );  
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginLeft: 10, marginTop: 5, paddingVertical: 10, },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  totalText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#333',
+  },
+  textStatus: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    color: '#333',
+  },
 });
 
 const pickerSelectStyles = {
