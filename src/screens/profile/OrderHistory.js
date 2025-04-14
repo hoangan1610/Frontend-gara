@@ -29,7 +29,9 @@ const OrderHistory = ({navigation}) => {
       });
       const data = await response.json();
       if (response.ok) {
-        setOrders(data);
+        // Sắp xếp đơn hàng theo id giảm dần (mới nhất trước)
+        const sortedOrders = data.sort((a, b) => b.id - a.id); 
+        setOrders(sortedOrders);
       } else {
         console.error('Lỗi từ server:', data.message);
       }
