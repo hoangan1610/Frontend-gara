@@ -11,6 +11,7 @@ const OrderDetail = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [actionDone, setActionDone] = useState(false);
 
   const cancelReasons = [
     "Không nhận được kiện hàng",
@@ -60,40 +61,44 @@ const OrderDetail = ({ route, navigation }) => {
   };
 
   const handleCancelOrder = async () => {
+    setActionDone(true);
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
         Alert.alert("Vui lòng đăng nhập để tiếp tục");
+        setActionDone(false);
         return;
       }
-  
+
       const orderResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-  
+
       if (!orderResponse.ok) {
         const errorData = await orderResponse.json();
         console.error('Không thể lấy thông tin đơn hàng:', errorData.message);
         Alert.alert("Không thể lấy thông tin đơn hàng");
+        setActionDone(false);
         return;
       }
-  
+
       const orderData = await orderResponse.json();
-  
+
       if (!orderData || !orderData.createdAt) {
         console.error("Dữ liệu đơn hàng không hợp lệ:", orderData);
         Alert.alert("Dữ liệu đơn hàng không hợp lệ");
+        setActionDone(false);
         return;
       }
-  
+
       if (orderData.status === 'CANCELLED') {
         Alert.alert("Thông báo", "Đơn hàng đã được hủy trước đó.");
         return;
       }
-      
+
       if (!isCancelable(orderData.createdAt)) {
         Alert.alert("Không thể hủy đơn hàng sau 30 phút kể từ khi tạo");
         return;
@@ -105,96 +110,89 @@ const OrderDetail = ({ route, navigation }) => {
           'Authorization': `Bearer ${token}`,
         },
       });
-  
+
       const cancelData = await cancelResponse.json();
-  
+
       if (cancelResponse.ok) {
         Alert.alert("Đơn hàng đã được hủy thành công");
         await fetchOrderDetail(orderId);
       } else {
         console.error('Lỗi từ server:', cancelData.message);
-        Alert.alert("Hủy đơn hàng thất bại:", cancelData.message);
+        Alert.alert("Hủy đơn hàng thất bại", cancelData.message);
+        setActionDone(false);
       }
-  
+
     } catch (error) {
       console.error('Lỗi khi hủy đơn hàng:', error);
       Alert.alert("Đã xảy ra lỗi khi hủy đơn hàng");
+      setActionDone(false);
     }
   };
   
   const handleSendCancelRequest = async () => {
+    setActionDone(true);
     if (!selectedReason) {
-      Alert.alert('Vui lòng chọn lý do hủy đơn hàng.');
+      Alert.alert('Thông báo', 'Vui lòng chọn lý do hủy đơn hàng.');
+      setActionDone(false);
       return;
     }
-  
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        Alert.alert('Không tìm thấy token người dùng.');
-        return;
-      }
-  
-      const orderResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-  
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        console.error('Không thể lấy thông tin đơn hàng:', errorData.message);
-        Alert.alert("Không thể lấy thông tin đơn hàng");
-        return;
-      }
-  
-      const orderData = await orderResponse.json();
-  
-      if (!orderData || !orderData.createdAt) {
-        console.error("Dữ liệu đơn hàng không hợp lệ:", orderData);
-        Alert.alert("Dữ liệu đơn hàng không hợp lệ");
-        return;
-      }
-  
-      if (orderData.status === 'CANCELLED') {
-        Alert.alert("Thông báo", "Đơn hàng đã được hủy trước đó.");
+        Alert.alert('Thông báo', 'Không tìm thấy token người dùng.');
+        setActionDone(false);
         return;
       }
 
-      if (orderData.cancelRequestStatus === 'PENDING') {
-        Alert.alert("Thông báo", "Đơn hàng đã được gửi yêu cầu hủy hàng.");
+      const orderResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!orderResponse.ok) {
+        const err = await orderResponse.json();
+        Alert.alert('Thông báo', 'Không thể lấy thông tin đơn hàng');
+        setActionDone(false);
         return;
       }
-  
+
+      const orderData = await orderResponse.json();
+      if (!orderData.createdAt) {
+        Alert.alert('Thông báo', 'Dữ liệu đơn hàng không hợp lệ');
+        setActionDone(false);
+        return;
+      }
+      if (orderData.status === 'CANCELLED') {
+        Alert.alert('Thông báo', 'Đơn hàng đã được hủy trước đó.');
+        setActionDone(false);
+        return;
+      }
+      if (orderData.cancelRequestStatus === 'PENDING') {
+        Alert.alert('Thông báo', 'Đơn hàng đã được gửi yêu cầu hủy hàng.');
+        setActionDone(false);
+        return;
+      }
       if (isCancelable(orderData.createdAt)) {
-        Alert.alert('Đơn hàng có thể hủy trực tiếp trong vòng 30 phút, không cần gửi yêu cầu.');
+        Alert.alert('Thông báo', 'Đơn hàng có thể hủy trực tiếp trong vòng 30 phút, không cần gửi yêu cầu.');
+        setActionDone(false);
         return;
       }
 
       const response = await fetch(`${BASE_URL}/api/v1/order/${orderId}/request-cancel`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderId: orderId,
-          reason: selectedReason
-        })
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, reason: selectedReason })
       });
-  
       const data = await response.json();
-  
       if (response.ok) {
         Alert.alert('Thành công', data.message);
         setModalVisible(false);
       } else {
         Alert.alert('Thất bại', data.message || 'Đã xảy ra lỗi.');
+        setActionDone(false);
       }
     } catch (error) {
-      console.error('Lỗi gửi yêu cầu hủy:', error);
       Alert.alert('Lỗi', 'Không thể gửi yêu cầu hủy đơn hàng.');
+      setActionDone(false);
     }
   };
 
@@ -233,16 +231,16 @@ const OrderDetail = ({ route, navigation }) => {
 
   const renderOrderItem = ({ item }) => {
     const effectivePrice = item.product_option?.price || item.product?.price || 0;
-
+    const productPath = item.product?.path || item.productPath;
     return (
-      <View style={styles.orderItemCard}>
-        {/* Hình ảnh sản phẩm */}
-        <Image 
-          source={{ uri: item?.product?.image_url || "https://via.placeholder.com/150" }} 
-          style={styles.productImage} 
+      <TouchableOpacity
+        style={styles.orderItemCard}
+        onPress={() => navigation.navigate('ProductDetail', { productPath })}
+      >
+        <Image
+          source={{ uri: item?.product?.image_url || "https://via.placeholder.com/150" }}
+          style={styles.productImage}
         />
-
-        {/* Thông tin sản phẩm */}
         <View style={styles.orderItemInfo}>
           <Text style={styles.productName}>{item?.product?.name || "Không có tên"}</Text>
           <Text style={styles.productQuantity}>Số lượng: {item.quantity}</Text>
@@ -250,9 +248,10 @@ const OrderDetail = ({ route, navigation }) => {
             {(effectivePrice * item.quantity).toLocaleString('vi-VN')} đ
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
+
 
   return (
     <View style={styles.container}>
@@ -284,16 +283,24 @@ const OrderDetail = ({ route, navigation }) => {
             renderItem={renderOrderItem}
           />
 
-          <TouchableOpacity style={styles.cancelButton} onPress={confirmCancelOrder}>
-            <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
-          </TouchableOpacity>
-
-          {/* Nút gửi yêu cầu hủy đơn hàng */}
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={() => setModalVisible(true)}>
-            <Text style={styles.cancelButtonText}>Gửi yêu cầu hủy đơn hàng</Text>
-          </TouchableOpacity>
+          {/* Nút hủy đơn hàng */}
+          {isCancelable(orderDetail.createdAt) ? (
+            <TouchableOpacity
+              style={[styles.cancelButton, actionDone && styles.disabledButton]}
+              onPress={confirmCancelOrder}
+              disabled={actionDone}
+            >
+              <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.cancelButton, actionDone && styles.disabledButton]}
+              onPress={() => setModalVisible(true)}
+              disabled={actionDone}
+            >
+              <Text style={styles.cancelButtonText}>Gửi yêu cầu hủy đơn hàng</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Modal chọn lý do hủy đơn hàng */}
           <Modal
@@ -361,7 +368,8 @@ const styles = StyleSheet.create({
   modalContent: { width: '80%', backgroundColor: 'white', padding: 20, borderRadius: 10 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   submitButton: { padding: 10, backgroundColor: '#1e90ff', borderRadius: 20, marginTop: 10, width: '100%', alignItems: 'center' },
-  submitButtonText: { color: 'white', fontSize: 16, textAlign: 'center' }
+  submitButtonText: { color: 'white', fontSize: 16, textAlign: 'center' },
+  disabledButton: { backgroundColor: 'gray' },
 });
 
 export default OrderDetail;
