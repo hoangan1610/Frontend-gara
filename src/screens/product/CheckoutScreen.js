@@ -1,3 +1,4 @@
+// screens/CheckoutScreen.js
 import React from 'react';
 import { 
   View, Text, ActivityIndicator, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, Alert, ScrollView 
@@ -198,7 +199,7 @@ const CheckoutScreen = ({ route, navigation }) => {
           ListHeaderComponent={renderHeader}
           keyboardShouldPersistTaps="always" 
         />
-        {/* Phần form nhập liệu được đặt bên ngoài FlatList */}
+        {/* Phần form nhập liệu */}
         <ScrollView 
           contentContainerStyle={styles.formContainer}
           keyboardShouldPersistTaps="handled"
@@ -215,17 +216,19 @@ const CheckoutScreen = ({ route, navigation }) => {
                 : 'Chưa có thông tin người dùng'}
             </Text>
             <Text style={styles.addressLabel}>Địa chỉ giao hàng:</Text>
-            {address ? (
-              <Text style={styles.addressText}>{address}</Text>
+            {userInfo && userInfo.address ? (
+              <Text style={styles.addressText}>{userInfo.address}</Text>
             ) : (
-              <Text style={styles.addressText}>Chưa có địa chỉ. Vui lòng nhập địa chỉ giao hàng.</Text>
+              <>
+                <Text style={styles.addressText}>Chưa có địa chỉ. Vui lòng nhập địa chỉ giao hàng.</Text>
+                <TextInput 
+                  style={styles.addressInput}
+                  placeholder="Nhập địa chỉ giao hàng..."
+                  value={address}
+                  onChangeText={setAddress}
+                />
+              </>
             )}
-            <TextInput 
-              style={styles.addressInput}
-              placeholder="Nhập địa chỉ giao hàng..."
-              value={address}
-              onChangeText={setAddress}
-            />
           </View>
           <View style={styles.paymentContainer}>
             <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>

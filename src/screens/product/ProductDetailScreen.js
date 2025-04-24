@@ -307,8 +307,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.statisticsContainer}>
-          <Text style={styles.statisticsText}>Số khách đã mua: {purchasedCount}</Text>
-          <Text style={styles.statisticsText}>Số khách đã bình luận: {reviewCount}</Text>
+          <Text style={styles.statisticsText}>Số lượt đã mua: {purchasedCount}</Text>
+          <Text style={styles.statisticsText}>Số lượt đã bình luận: {reviewCount}</Text>
         </View>
 
         {/* Nếu người dùng đã mua sản phẩm */}

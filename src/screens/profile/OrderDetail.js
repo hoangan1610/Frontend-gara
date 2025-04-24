@@ -162,6 +162,11 @@ const OrderDetail = ({ route, navigation }) => {
         return;
       }
 
+      if (orderData.cancelRequestStatus === 'PENDING') {
+        Alert.alert("Thông báo", "Đơn hàng đã được gửi yêu cầu hủy hàng.");
+        return;
+      }
+  
       if (isCancelable(orderData.createdAt)) {
         Alert.alert('Đơn hàng có thể hủy trực tiếp trong vòng 30 phút, không cần gửi yêu cầu.');
         return;

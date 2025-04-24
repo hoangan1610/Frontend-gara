@@ -35,7 +35,7 @@ const Login = () => {
       </TouchableOpacity>
 
       {/* Continue as Guest */}
-      <TouchableOpacity onPress={() => navigation.navigate('HomePage')}>
+      <TouchableOpacity onPress={() => navigation.navigate('Home')}>
         <Text style={styles.guestText}>Continue as Guest</Text>
       </TouchableOpacity>
     </View>
