@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, View, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
+import { FlatList, View, StyleSheet, Text, TouchableOpacity, Image, Button } from 'react-native';
 import axios from 'axios';
 import { BASE_URL } from '../../constants/config';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -84,6 +84,12 @@ const HomePage = () => {
     );
   };
 
+  // Hàm thử nghiệm: Emit thông báo từ client (chỉ là một test)
+  const handleTestNotification = () => {
+    console.log("Test Notification Triggered!");
+    // Thực hiện emit socket hoặc một hành động khác ở đây
+  };
+
   return (
     <View style={styles.container}>
       {/* Header được render bên ngoài FlatList, luôn hiển thị cố định */}
@@ -99,6 +105,14 @@ const HomePage = () => {
             <CategoryList categories={categories} />
             <BestSellers bestSellers={bestSellers} loading={loading} />
             {renderRecentlyViewed()}
+            
+            {/* Nút Test */}
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={handleTestNotification}
+            >
+              <Text style={styles.testButtonText}>Test Thông Báo</Text>
+            </TouchableOpacity>
           </>
         )}
         contentContainerStyle={styles.flatListContainer}
@@ -171,7 +185,22 @@ const styles = StyleSheet.create({
     color: 'red',
     alignSelf: 'center',
   },
-  
+
+  // Nút Test
+  testButton: {
+    backgroundColor: '#007BFF',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+
+  testButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default HomePage;

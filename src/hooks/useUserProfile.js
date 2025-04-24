@@ -10,7 +10,6 @@ export const useUserProfile = () => {
   const isLoadingRef = useRef(false);
 
   const loadProfile = useCallback(async (forceRefresh = false) => {
-    // Nếu đang load thì không gọi lại
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setLoading(true);
@@ -19,6 +18,7 @@ export const useUserProfile = () => {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
         console.log('Token không tồn tại, cần đăng nhập');
+        setProfile(null);
         setLoading(false);
         isLoadingRef.current = false;
         return;
@@ -28,45 +28,47 @@ export const useUserProfile = () => {
       const cachedProfile = await AsyncStorage.getItem('cachedProfile');
       const cachedTimestamp = await AsyncStorage.getItem('cachedProfileTimestamp');
 
-      // Nếu không buộc refresh và cache còn hợp lệ, sử dụng cache
       if (!forceRefresh && cachedProfile && cachedTimestamp && now - parseInt(cachedTimestamp, 10) < CACHE_DURATION) {
-        setProfile(JSON.parse(cachedProfile));
+        const parsedProfile = JSON.parse(cachedProfile);
+        setProfile({ ...parsedProfile, token }); // Thêm token vào profile từ cache
         setLoading(false);
         isLoadingRef.current = false;
         return;
       }
 
-      // Nếu cache không hợp lệ hoặc buộc refresh, gọi API để lấy dữ liệu mới
       const response = await fetch(`${BASE_URL}/api/v1/user/get-user-info`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
       const data = await response.json();
       if (response.ok) {
-        setProfile(data);
-        // Cập nhật cache mới khi API thành công
-        await AsyncStorage.setItem('cachedProfile', JSON.stringify(data));
+        if (data.loyaltyPoints === undefined) {
+          data.loyaltyPoints = 0;
+        }
+        const updatedProfile = { ...data, token }; // Thêm token vào profile
+        setProfile(updatedProfile);
+        await AsyncStorage.setItem('cachedProfile', JSON.stringify(updatedProfile));
         await AsyncStorage.setItem('cachedProfileTimestamp', now.toString());
       } else {
         console.error('Lỗi lấy thông tin người dùng:', data.message);
+        setProfile(null);
       }
     } catch (error) {
       console.error('Lỗi khi lấy thông tin người dùng:', error);
+      setProfile(null);
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
     }
   }, []);
 
-  // Gọi loadProfile 1 lần đầu khi hook được mount
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
 
-  // Hàm refreshProfile để buộc lấy dữ liệu mới và cập nhật cache
   const refreshProfile = useCallback(() => {
     return loadProfile(true);
   }, [loadProfile]);

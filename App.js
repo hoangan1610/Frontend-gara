@@ -87,6 +87,7 @@ const App = () => {
           <Stack.Screen name="OrderDetail" component={OrderDetail} options={{ headerShown: false }} />
           <Stack.Screen name="ProductFollow" component={ProductFollowScreen} options={{ headerShown: false }} />
           <Stack.Screen name="StatisticalPage" component={StatisticalPage} options={{ headerShown: false }} />
+          
         </Stack.Navigator>
       </NavigationContainer>
     </QueryClientProvider>
