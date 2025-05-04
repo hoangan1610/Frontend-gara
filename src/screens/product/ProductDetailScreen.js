@@ -9,8 +9,6 @@ import { BASE_URL } from '../../constants/config';
 import Header from '../home/Header';
 import { emitter } from '../../utils/eventEmitter';
 import ProductInfo from './ProductInfo';
-import CommentSection from './CommentSection';
-import ReviewsSection from './ReviewsSection';
 import { useHasPurchased } from '../../hooks/useHasPurchased';
 import { useProductReviews } from '../../hooks/useProductReviews';
 import { FontAwesome } from '@expo/vector-icons';
@@ -276,10 +274,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const effectivePrice = selectedOption ? Number(selectedOption.price) : Number(product.price);
   const totalPrice = effectivePrice * quantity;
 
-  // Kiểm tra xem người dùng đã bình luận cho đơn hàng (orderIds[0]) hay chưa
-  // Giả sử mỗi review có thuộc tính orderId
-  const hasReviewed = reviews?.some(review => review.orderId === orderIds?.[0]) ?? false;
-
   return (
     <View style={styles.screenContainer}>
       <Header navigation={navigation} />
@@ -310,27 +304,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           <Text style={styles.statisticsText}>Số lượt đã mua: {purchasedCount}</Text>
           <Text style={styles.statisticsText}>Số lượt đã bình luận: {reviewCount}</Text>
         </View>
-
-        {/* Nếu người dùng đã mua sản phẩm */}
-        {orderIds && orderIds.length > 0 ? (
-          <>
-            {hasReviewed ? (
-              <View style={styles.center}>
-                <Text style={styles.infoText}>Bạn đã đánh giá sản phẩm này.</Text>
-              </View>
-            ) : (
-              <CommentSection productId={product.id} orderId={orderIds[0]} />
-            )}
-            <ReviewsSection reviews={reviews} />
-          </>
-        ) : (
-          <View style={styles.center}>
-            <Text style={styles.infoText}>
-              Bạn chưa mua sản phẩm này, vì vậy không thể đánh giá.
-            </Text>
-          </View>
-        )}
-
+        
         <Text style={styles.sectionTitle}>Sản phẩm tương tự</Text>
         {similarProducts.length > 0 ? (
           <FlatList

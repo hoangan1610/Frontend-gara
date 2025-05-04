@@ -4,14 +4,103 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { BASE_URL } from '../../constants/config';
 import { Picker } from '@react-native-picker/picker';
+import CommentSection from './CommentSection';
+import ReviewSection from './ReviewSection';
+import { useQuery, useQueryClient } from 'react-query';
+
+// Hàm lấy chi tiết đơn hàng
+const fetchOrderDetail = async (orderId) => {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('Token không tồn tại, cần đăng nhập');
+    }
+    // Lấy chi tiết đơn hàng
+    const itemsResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}/items`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    const itemsData = await itemsResponse.json();
+    if (!itemsResponse.ok) {
+      throw new Error(itemsData.message || 'Lỗi khi lấy chi tiết đơn hàng');
+    }
+    // Lấy trạng thái đơn hàng
+    const statusResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    const statusData = await statusResponse.json();
+    if (!statusResponse.ok) {
+      throw new Error(statusData.message || 'Lỗi khi lấy trạng thái đơn hàng');
+    }
+    // Lấy trạng thái yêu cầu hủy
+    const storedCancelRequest = await AsyncStorage.getItem(`cancelRequest_${orderId}`);
+    // Lấy đánh giá sản phẩm
+    const productIds = itemsData.order_items
+      ?.map((item) => item.product?.id)
+      ?.filter(Boolean) || [];
+    let reviewsByProductId = {};
+    if (productIds.length > 0) {
+      const reviewsPromises = productIds.map((id) =>
+        fetch(`${BASE_URL}/api/v1/review?productId=${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }).then((res) => res.json())
+      );
+      const reviewsResponses = await Promise.all(reviewsPromises);
+      reviewsByProductId = productIds.reduce((acc, id, index) => {
+        acc[id] = reviewsResponses[index].reviews || [];
+        return acc;
+      }, {});
+    }
+    // Lấy trạng thái đánh giá
+    const ratingStatusPromises = itemsData.order_items?.map((item) =>
+      fetch(`${BASE_URL}/api/v1/order/${orderId}/item/${item.id}/rating`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }).then((res) => res.json())
+    ) || [];
+    const ratingStatuses = await Promise.all(ratingStatusPromises);
+    const ratingStatusByItemId = itemsData.order_items?.reduce((acc, item, index) => {
+      acc[item.id] = ratingStatuses[index].hasRated || false;
+      return acc;
+    }, {}) || {};
+
+    return {
+      ...itemsData,
+      cancelRequestStatus: statusData.cancelRequestStatus,
+      storedCancelRequest,
+      reviewsByProductId,
+      ratingStatusByItemId,
+    };
+  } catch (error) {
+    console.error('Lỗi khi lấy chi tiết đơn hàng:', error.message);
+    throw new Error('Có lỗi xảy ra khi lấy chi tiết đơn hàng');
+  }
+};
 
 const OrderDetail = ({ route, navigation }) => {
   const { orderId } = route.params;
-  const [orderDetail, setOrderDetail] = useState(null);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [actionDone, setActionDone] = useState(false);
+  const [isCancelRequest, setIsCancelRequest] = useState(false);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
 
   const cancelReasons = [
     "Không nhận được kiện hàng",
@@ -22,51 +111,36 @@ const OrderDetail = ({ route, navigation }) => {
     "Gửi sai sản phẩm"
   ];
   
-  useEffect(() => {
-    if (orderId) {
-      fetchOrderDetail(orderId);
-  }
-  }, [orderId]);
-
-  const fetchOrderDetail = async (orderId) => {
-    if (!orderId) {
-      console.error("Mã đơn hàng không hợp lệ");
-      return;
+  // Lấy chi tiết đơn hàng
+  const { data: orderDetail, isLoading, error } = useQuery(
+    ['orderDetail', orderId],
+    () => fetchOrderDetail(orderId),
+    {
+      retry: false,
+      staleTime: 1000 * 60 * 5, // Cache 5 phút
+      onSuccess: (data) => {
+        setActionDone(
+          data.status === 'CANCELLED' ||
+            data.cancelRequestStatus === 'PENDING' ||
+            data.storedCancelRequest === 'PENDING'
+        );
+        setIsCancelRequest(
+          data.cancelRequestStatus === 'PENDING' ||
+            data.storedCancelRequest === 'PENDING'
+        );
+      },
+      onError: () => {
+        setReviewsLoading(false);
+        setReviewsError('Không thể tải đánh giá');
+      },
     }
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        console.log('Token không tồn tại, cần đăng nhập');
-        return;
-      }
-      const response = await fetch(`${BASE_URL}/api/v1/order/${orderId}/items`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setOrderDetail(data);
-      } else {
-        console.error('Lỗi từ server:', data.message);
-      }
-    } catch (error) {
-      console.error('Lỗi khi lấy chi tiết đơn hàng:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  );
 
   const handleCancelOrder = async () => {
-    setActionDone(true);
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
         Alert.alert("Vui lòng đăng nhập để tiếp tục");
-        setActionDone(false);
         return;
       }
 
@@ -81,7 +155,6 @@ const OrderDetail = ({ route, navigation }) => {
         const errorData = await orderResponse.json();
         console.error('Không thể lấy thông tin đơn hàng:', errorData.message);
         Alert.alert("Không thể lấy thông tin đơn hàng");
-        setActionDone(false);
         return;
       }
 
@@ -96,6 +169,7 @@ const OrderDetail = ({ route, navigation }) => {
 
       if (orderData.status === 'CANCELLED') {
         Alert.alert("Thông báo", "Đơn hàng đã được hủy trước đó.");
+        setActionDone(true);
         return;
       }
 
@@ -103,7 +177,7 @@ const OrderDetail = ({ route, navigation }) => {
         Alert.alert("Không thể hủy đơn hàng sau 30 phút kể từ khi tạo");
         return;
       }
-
+      setActionDone(true)
       const cancelResponse = await fetch(`${BASE_URL}/api/v1/order/${orderId}/cancel`, {
         method: 'PUT',
         headers: {
@@ -115,7 +189,7 @@ const OrderDetail = ({ route, navigation }) => {
 
       if (cancelResponse.ok) {
         Alert.alert("Đơn hàng đã được hủy thành công");
-        await fetchOrderDetail(orderId);
+        queryClient.invalidateQueries(['orderDetail', orderId]);
       } else {
         console.error('Lỗi từ server:', cancelData.message);
         Alert.alert("Hủy đơn hàng thất bại", cancelData.message);
@@ -130,17 +204,14 @@ const OrderDetail = ({ route, navigation }) => {
   };
   
   const handleSendCancelRequest = async () => {
-    setActionDone(true);
     if (!selectedReason) {
       Alert.alert('Thông báo', 'Vui lòng chọn lý do hủy đơn hàng.');
-      setActionDone(false);
       return;
     }
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
         Alert.alert('Thông báo', 'Không tìm thấy token người dùng.');
-        setActionDone(false);
         return;
       }
 
@@ -151,24 +222,23 @@ const OrderDetail = ({ route, navigation }) => {
       if (!orderResponse.ok) {
         const err = await orderResponse.json();
         Alert.alert('Thông báo', 'Không thể lấy thông tin đơn hàng');
-        setActionDone(false);
         return;
       }
 
       const orderData = await orderResponse.json();
       if (!orderData.createdAt) {
         Alert.alert('Thông báo', 'Dữ liệu đơn hàng không hợp lệ');
-        setActionDone(false);
         return;
       }
       if (orderData.status === 'CANCELLED') {
         Alert.alert('Thông báo', 'Đơn hàng đã được hủy trước đó.');
-        setActionDone(false);
+        setActionDone(true);
         return;
       }
       if (orderData.cancelRequestStatus === 'PENDING') {
         Alert.alert('Thông báo', 'Đơn hàng đã được gửi yêu cầu hủy hàng.');
-        setActionDone(false);
+        setActionDone(true);
+        setIsCancelRequest(true);
         return;
       }
       if (isCancelable(orderData.createdAt)) {
@@ -185,10 +255,15 @@ const OrderDetail = ({ route, navigation }) => {
       const data = await response.json();
       if (response.ok) {
         Alert.alert('Thành công', data.message);
+        setActionDone(true);
+        setIsCancelRequest(true);
+        await AsyncStorage.setItem(`cancelRequest_${orderId}`, 'PENDING');
         setModalVisible(false);
+        queryClient.invalidateQueries(['orderDetail', orderId]);
       } else {
         Alert.alert('Thất bại', data.message || 'Đã xảy ra lỗi.');
         setActionDone(false);
+        setIsCancelRequest(false);
       }
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể gửi yêu cầu hủy đơn hàng.');
@@ -232,6 +307,7 @@ const OrderDetail = ({ route, navigation }) => {
   const renderOrderItem = ({ item }) => {
     const effectivePrice = item.product_option?.price || item.product?.price || 0;
     const productPath = item.product?.path || item.productPath;
+
     return (
       <TouchableOpacity
         style={styles.orderItemCard}
@@ -283,23 +359,63 @@ const OrderDetail = ({ route, navigation }) => {
             renderItem={renderOrderItem}
           />
 
-          {/* Nút hủy đơn hàng */}
-          {isCancelable(orderDetail.createdAt) ? (
-            <TouchableOpacity
-              style={[styles.cancelButton, actionDone && styles.disabledButton]}
-              onPress={confirmCancelOrder}
-              disabled={actionDone}
-            >
-              <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
-            </TouchableOpacity>
+          {orderDetail.status === 'FINISHED' ? (
+            <View style={{ marginVertical: 10 }}>
+              {Object.values(orderDetail.ratingStatusByItemId || {}).every((hasRated) => hasRated) ? (
+                <View style={styles.center}>
+                  <Text style={styles.infoText}>Bạn đã đánh giá đơn hàng này.</Text>
+                </View>
+              ) : (
+                <CommentSection
+                  orderId={orderId}
+                  orderItems={orderDetail.order_items}
+                  onReviewSubmitted={() => {
+                    queryClient.invalidateQueries(['orderDetail', orderId]);}}
+                />
+              )}
+              {reviewsLoading ? (
+                <ActivityIndicator size="small" color="#2563eb" style={{ marginVertical: 10 }} />
+              ) : reviewsError ? (
+                <Text style={styles.errorText}>Lỗi khi tải đánh giá: {reviewsError}</Text>
+              ) : (
+                <ReviewSection reviews={orderDetail.reviewsByProductId} />
+              )}
+            </View>
           ) : (
-            <TouchableOpacity
-              style={[styles.cancelButton, actionDone && styles.disabledButton]}
-              onPress={() => setModalVisible(true)}
-              disabled={actionDone}
-            >
-              <Text style={styles.cancelButtonText}>Gửi yêu cầu hủy đơn hàng</Text>
-            </TouchableOpacity>
+            <>
+              {isCancelable(orderDetail.createdAt) ? (
+                <TouchableOpacity
+                  style={[
+                    styles.cancelButton,
+                    (actionDone || orderDetail.status === 'CANCELLED') && styles.disabledButton,
+                  ]}
+                  onPress={confirmCancelOrder}
+                  disabled={actionDone || orderDetail.status === 'CANCELLED'}
+                >
+                  <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.cancelButton,
+                    (actionDone ||
+                      orderDetail.status === 'CANCELLED' ||
+                      orderDetail.cancelRequestStatus === 'PENDING') &&
+                      styles.disabledButton,
+                  ]}
+                  onPress={() => setModalVisible(true)}
+                  disabled={
+                    actionDone ||
+                    orderDetail.status === 'CANCELLED' ||
+                    orderDetail.cancelRequestStatus === 'PENDING'
+                  }
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {isCancelRequest ? 'Chờ xác nhận' : 'Gửi yêu cầu hủy đơn hàng'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           {/* Modal chọn lý do hủy đơn hàng */}
@@ -370,6 +486,8 @@ const styles = StyleSheet.create({
   submitButton: { padding: 10, backgroundColor: '#1e90ff', borderRadius: 20, marginTop: 10, width: '100%', alignItems: 'center' },
   submitButtonText: { color: 'white', fontSize: 16, textAlign: 'center' },
   disabledButton: { backgroundColor: 'gray' },
+  center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  infoText: { marginVertical: 20, textAlign: 'center', fontSize: 16, color: '#555' },
 });
 
 export default OrderDetail;
