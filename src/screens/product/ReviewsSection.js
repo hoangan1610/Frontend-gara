@@ -1,55 +1,45 @@
+// components/ReviewsSection.js
 import React from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const ReviewsSection = ({ reviews }) => {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Bình luận của người dùng</Text>
-      {reviews && reviews.length > 0 ? (
-        reviews.map(review => (
-          <View key={review.id} style={styles.reviewItem}>
-            <View style={styles.reviewHeader}>
-              <Image 
-                source={{ uri: review.user.image_url }} 
-                style={styles.reviewAvatar}
-              />
-              <Text style={styles.reviewAuthor}>
-                {review.user.first_name} {review.user.last_name}
-              </Text>
-            </View>
-            <View style={styles.reviewStars}>
-              {Array(review.rating).fill().map((_, i) => (
-                <Ionicons key={i} name="star" size={16} color="#ffd700" />
-              ))}
-              {Array(5 - review.rating).fill().map((_, i) => (
-                <Ionicons key={i} name="star-outline" size={16} color="#ffd700" />
-              ))}
-            </View>
-            <Text style={styles.reviewComment}>{review.comment}</Text>
-            <Text style={styles.reviewDate}>
-              {new Date(review.createdAt).toLocaleDateString()}
-            </Text>
+const ReviewsSection = ({ reviews }) => (
+  <View style={styles.wrapper}>
+    <Text style={styles.header}>Bình luận của người dùng</Text>
+    <FlatList
+      data={reviews}
+      keyExtractor={item => item.id.toString()}
+      renderItem={({ item }) => (
+        <View style={styles.item}>
+          <View style={styles.top}>
+            <Image source={{ uri: item.user.image_url }} style={styles.avatar} />
+            <Text style={styles.name}>{item.user.first_name} {item.user.last_name}</Text>
           </View>
-        ))
-      ) : (
-        <Text style={styles.infoText}>Chưa có bình luận nào.</Text>
+          <View style={styles.stars}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Ionicons key={i} name={i < item.rating ? 'star' : 'star-outline'} size={16} color='#ffd700' />
+            ))}
+          </View>
+          <Text style={styles.comment}>{item.comment}</Text>
+          <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+        </View>
       )}
-    </View>
-  );
-};
+      ListEmptyComponent={<Text style={styles.empty}>Chưa có bình luận nào.</Text>}
+    />
+  </View>
+);
 
 const styles = StyleSheet.create({
-  container: { marginTop: 20, padding: 10, backgroundColor: '#f2f2f2', borderRadius: 10 },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
-  reviewItem: { backgroundColor: '#fff', padding: 10, borderRadius: 8, marginBottom: 10 },
-  reviewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  reviewAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
-  reviewAuthor: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  reviewStars: { flexDirection: 'row', marginBottom: 5 },
-  reviewComment: { fontSize: 14, marginBottom: 5, color: '#555' },
-  reviewDate: { fontSize: 12, color: '#999', textAlign: 'right' },
-  infoText: { textAlign: 'center', fontSize: 16, color: '#555' },
+  wrapper: { margin: 16, backgroundColor: '#f2f2f2', borderRadius: 8, padding: 12 },
+  header: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  item: { backgroundColor: '#fff', borderRadius: 6, padding: 12, marginBottom: 10 },
+  top: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  avatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
+  name: { fontWeight: 'bold' },
+  stars: { flexDirection: 'row', marginBottom: 6 },
+  comment: { fontSize: 14, color: '#333', marginBottom: 6 },
+  date: { fontSize: 12, color: '#999', textAlign: 'right' },
+  empty: { textAlign: 'center', color: '#555' }
 });
 
 export default ReviewsSection;

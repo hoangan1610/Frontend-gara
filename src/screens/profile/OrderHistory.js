@@ -7,10 +7,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const OrderHistory = ({navigation}) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filteredStatus, setFilteredStatus] = useState(null);
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const filteredOrders = filteredStatus
+  ? orders.filter(order => order.status === filteredStatus)
+  : orders;
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -43,35 +48,35 @@ const OrderHistory = ({navigation}) => {
   };
   
   const renderOrderItem = (orderItem) => {
-    // Lấy giá sản phẩm hoặc giá tùy chọn nếu có
-    const effectivePrice = orderItem.product_option && orderItem.product_option.price 
-      ? orderItem.product_option.price 
-      : orderItem.product.price;
+    const effectivePrice =
+      orderItem.product_option?.price ?? orderItem.product?.price ?? 0;
+    const productPath = orderItem.product?.path;;
 
     return (
-      <View style={styles.orderCard}>
-        {/* Hình ảnh sản phẩm */}
-        <Image 
-          source={{ uri: orderItem?.product?.image_url || "https://via.placeholder.com/150" }} 
-          style={styles.productImage} 
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() =>
+          navigation.navigate('ProductDetail', { productPath })
+        }
+      >
+        <Image
+          source={{ uri: orderItem.product?.image_url || 'https://via.placeholder.com/150' }}
+          style={styles.productImage}
         />
-  
-        {/* Thông tin sản phẩm */}
         <View style={styles.orderInfo}>
           <Text style={styles.productName}>
-            {orderItem?.product?.name || "Không có tên"}
+            {orderItem.product?.name || 'Không có tên'}
           </Text>
-  
-          <Text style={styles.productQuantity}>Số lượng: {orderItem.quantity}</Text>
-  
-          {/* Hiển thị giá sản phẩm đã nhân với số lượng */}
+          <Text style={styles.productQuantity}>
+            Số lượng: {orderItem.quantity}
+          </Text>
           <Text style={styles.productPrice}>
             {(effectivePrice * orderItem.quantity).toLocaleString('vi-VN')} đ
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
-  };  
+  };
 
   return (
     <View style={styles.container}>
@@ -83,11 +88,30 @@ const OrderHistory = ({navigation}) => {
         <Text style={styles.headerTitle}>Đơn hàng đã mua</Text>
       </View>
 
+      <View style={styles.filterContainer}>
+      {['PENDING', 'CANCELLED', 'DELIVERING', 'FINISHED'].map(status => (
+        <TouchableOpacity
+          key={status}
+          style={[
+            styles.filterButton,
+            filteredStatus === status && styles.activeFilterButton
+          ]}
+          onPress={() => setFilteredStatus(filteredStatus === status ? null : status)}
+          >
+          <Text style={[
+          styles.filterButtonText,
+          filteredStatus === status && styles.activeFilterButtonText
+          ]}>
+            {status}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      </View>
       {loading ? (
       <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 20 }} />
       ) : (
         <FlatList
-          data={orders}
+          data={filteredOrders}
           keyExtractor={(order) => order.id.toString()}
           renderItem={({ item: order }) => (
             
@@ -217,6 +241,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 10,
+    marginBottom: 10,
+  },
+  filterButton: {
+    flex: 1,
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  filterButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  activeFilterButton: {
+    backgroundColor: 'red',
+  },
+  activeFilterButtonText: {
+    color: '#fff',
+  },  
 });
 
 export default OrderHistory;
