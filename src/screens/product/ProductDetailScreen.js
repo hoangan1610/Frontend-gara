@@ -314,13 +314,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
         {/* Nếu người dùng đã mua sản phẩm */}
         {orderIds && orderIds.length > 0 ? (
           <>
-            {hasReviewed ? (
-              <View style={styles.center}>
-                <Text style={styles.infoText}>Bạn đã đánh giá sản phẩm này.</Text>
-              </View>
-            ) : (
-              <CommentSection productId={product.id} orderId={orderIds[0]} />
-            )}
             <ReviewsSection reviews={reviews} />
           </>
         ) : (
